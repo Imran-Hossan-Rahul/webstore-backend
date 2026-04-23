@@ -75,13 +75,26 @@ class RecommendationService {
 
       let candidates = [];
 
-      // Fetch Templates
+      // Fetch Templates with proper user population
       if (!type || type === 'templates') {
-        const templates = await ButtonTemplate.find({ isActive: true })
+        const rawTemplates = await ButtonTemplate.find({ isActive: true })
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
-          .populate("user", "name avatar profilePicture")
           .lean();
+
+        // Batch fetch users for templates
+        const templateUserIds = [...new Set(rawTemplates.map(t => t.user?.toString()).filter(Boolean))];
+        const templateUsers = await User.find({ _id: { $in: templateUserIds } })
+          .select('_id name profilePicture avatar email')
+          .lean();
+        const templateUserMap = Object.fromEntries(templateUsers.map(u => [u._id.toString(), u]));
+
+        // Attach user to each template
+        const templates = rawTemplates.map(t => ({
+          ...t,
+          user: templateUserMap[t.user?.toString()] || null
+        }));
+
         candidates.push(...templates.map(t => ({ ...t, type: 'template' })));
       }
 
@@ -231,17 +244,23 @@ class RecommendationService {
    * Normalize item structure for Frontend
    */
   normalizeItem(item, currentUserId, userContext) {
-    // Basic User Mapping
+    // Basic User Mapping with better fallback
     const userMap = (u) => {
-        if (!u) return { name: 'Unknown', avatar: '' };
+        if (!u) return { name: 'Unknown', avatar: null, profilePicture: null };
         // Check if `u` is just an ID (if populate failed)
-        if (u.constructor.name === 'ObjectId' || typeof u === 'string') return { _id: u };
+        if (u.constructor.name === 'ObjectId' || typeof u === 'string') {
+            return { _id: u, name: 'Unknown', avatar: null, profilePicture: null };
+        }
+        
+        // Prioritize profilePicture, then avatar, then email-based fallback
+        const picture = u.profilePicture || u.avatar || u.creatorProfileId?.profilePicture || null;
         
         return {
             _id: u._id,
-            name: u.name,
+            name: u.name || 'Unknown User',
             username: u.username || (u.email ? u.email.split('@')[0] : 'user'),
-            avatar: u.profilePicture || u.creatorProfileId?.profilePicture || u.avatar
+            avatar: picture,
+            profilePicture: picture
         };
     };
 

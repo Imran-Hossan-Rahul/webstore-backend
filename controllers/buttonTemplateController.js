@@ -1,7 +1,7 @@
-// controllers/buttonTemplateController.js
 import asyncHandler from "express-async-handler";
 import axios from "axios";
 import ButtonTemplate from "../models/Template.model.js";
+import User from "../models/User.model.js";
 import logger from "../utils/logger.js";
 import cloudinary from "../services/cloudinary.js";
 import fs from "fs";
@@ -10,6 +10,10 @@ import { rankingQueue } from "../queues/index.js";
 import redis from "../utils/redisClient.js"; 
 import { CACHE_TTL } from "../config/constants.js"; 
 import { shareQueue } from "../queues/shareQueue.js";
+import { postLikeQueue } from "../queues/postLikeQueue.js";
+import { postCommentQueue } from "../queues/postCommentQueue.js";
+import Comment from "../models/Comment.model.js";
+import { fastValidateUploadedFiles } from "../utils/fastValidator.js";
 
 const VIEW_COOLDOWN_SECONDS = parseInt(
   process.env.VIEW_COOLDOWN_SECONDS || "60",
@@ -29,13 +33,29 @@ const POPULAR_ZSET = "templates:popular:zset";
 const FLUSH_THRESHOLD = 50;
 
 /* ------------------ CREATE TEMPLATE ------------------ */
-// ❌ DO NOT CHANGE createTemplate
 export const createTemplate = asyncHandler(async (req, res) => {
 
   if (!req.files?.previewFile?.[0] || !req.files?.projectFile?.[0]) {
     return res.status(400).json({
       success: false,
       errors: ["Preview file and Project file are required"],
+    });
+  }
+
+  // ⚡ FAST VALIDATION (instant - no blocking)
+  const validation = fastValidateUploadedFiles(req.files);
+  if (!validation.valid) {
+    // Clean up uploaded files
+    if (req.files.previewFile?.[0]?.path && fs.existsSync(req.files.previewFile[0].path)) {
+      fs.unlinkSync(req.files.previewFile[0].path);
+    }
+    if (req.files.projectFile?.[0]?.path && fs.existsSync(req.files.projectFile[0].path)) {
+      fs.unlinkSync(req.files.projectFile[0].path);
+    }
+    
+    return res.status(400).json({
+      success: false,
+      errors: validation.errors
     });
   }
 
@@ -60,6 +80,14 @@ export const createTemplate = asyncHandler(async (req, res) => {
   });
   if (fs.existsSync(previewFile.path)) fs.unlinkSync(previewFile.path);
 
+  // Upload project file to Cloudinary
+  const uploadedProject = await cloudinary.uploader.upload(projectFile.path, {
+    folder: "template_projects",
+    resource_type: "raw", // For zip files
+    public_id: `template_${Date.now()}_${projectFile.originalname.replace(/\.[^/.]+$/, "")}`,
+  });
+  if (fs.existsSync(projectFile.path)) fs.unlinkSync(projectFile.path);
+
   let template = await ButtonTemplate.create({
     user: req.user?._id,
     ...req.body,
@@ -68,11 +96,11 @@ export const createTemplate = asyncHandler(async (req, res) => {
     price: req.body.priceType === "paid" ? req.body.price : 0,
     cardShape: req.body.cardShape || "square-medium",
     previewFile: uploadedPreview.secure_url,
-    projectFile: projectFile.path,
+    projectFile: uploadedProject.secure_url,
     fileType: projectFile.mimetype,
     fileSize: projectFile.size,
     sourceType: "user",
-    status: "pending",
+    status: "pending", // Changed from "approved" to "pending" for background scan
   });
 
   template = await ButtonTemplate.findById(template._id);
@@ -84,23 +112,30 @@ export const createTemplate = asyncHandler(async (req, res) => {
   );
   await template.updateScores();
 
-  const fileBuffer = fs.readFileSync(projectFile.path);
+  // 🚀 ENQUEUE BACKGROUND SCAN (non-blocking)
+  await scanQueue.add(
+    'scan-template',
+    {
+      templateId: template._id.toString(),
+      projectFileUrl: uploadedProject.secure_url,
+      projectFilePath: null, // Already uploaded to Cloudinary
+    },
+    {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: true,
+      removeOnFail: false,
+    }
+  );
 
-  if (fs.existsSync(projectFile.path)) fs.unlinkSync(projectFile.path);
-
-  const fileBufferBase64 = fileBuffer.toString("base64");
-
-  await scanQueue.add("scan-project", {
-    templateId: template._id,
-    originalName: projectFile.originalname,
-    userId: req.user?._id,
-    fileBuffer: fileBufferBase64,
-  });
+  logger.info(`Template ${template._id} uploaded, scan queued`);
 
   return res.status(201).json({
     success: true,
-    message:
-      "Template uploaded successfully. Preview hosted on Cloudinary. Project file queued for scanning & upload.",
+    message: "Template uploaded successfully. Security scan in progress.",
     data: template,
   });
 });
@@ -141,12 +176,18 @@ export const getTemplates = asyncHandler(async (req, res) => {
       ]);
     } else {
       templates = await ButtonTemplate.find(query)
-        .populate("user", "name email profilePicture")
         .sort(sortQuery)
         .skip(skip)
         .limit(limit)
         .lean();
     }
+
+    // Batch fetch users for templates
+    const userIds = [...new Set(templates.map(t => t.user?.toString()).filter(Boolean))];
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('_id name profilePicture avatar email')
+      .lean();
+    const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
 
     // Add likeCount and isLiked for each template
     const userId = req.user?._id?.toString() || req.user?.id?.toString();
@@ -155,6 +196,7 @@ export const getTemplates = asyncHandler(async (req, res) => {
 
     templates = templates.map(template => ({
       ...template,
+      user: userMap[template.user?.toString()] || null,
       likes: template.likeCount || 0,
       isLiked: uniqueId ? (template.likedBy || []).includes(uniqueId) : false,
     }));
@@ -185,14 +227,19 @@ export const getTemplateById = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
 
-    const template = await ButtonTemplate.findById(id).populate(
-      "user",
-      "name email profilePicture"
-    );
+    const template = await ButtonTemplate.findById(id).lean();
     if (!template || !template.isActive)
       return res
         .status(404)
         .json({ success: false, message: "Template not found." });
+
+    // Fetch user separately
+    if (template.user) {
+      const user = await User.findById(template.user)
+        .select('name email profilePicture avatar')
+        .lean();
+      template.user = user;
+    }
 
     return res.status(200).json({ success: true, data: template });
   } catch (err) {
@@ -554,6 +601,141 @@ export const fetchAndSyncCodepen = asyncHandler(async (req, res) => {
         error: err.message,
       });
   }
+});
+
+/* ------------------ LIKE TEMPLATE (Worker-based) ------------------ */
+export const likeTemplate = asyncHandler(async (req, res) => {
+    try {
+        const { templateId } = req.params;
+        const userId = req.user._id || req.user.id;
+        
+        const template = await ButtonTemplate.findById(templateId).select('_id likedBy likeCount');
+        if (!template) return res.status(404).json({ success: false, message: "Template not found" });
+
+        const isLiked = template.likedBy.some(id => id.toString() === userId.toString());
+        const action = isLiked ? "unlike" : "like";
+
+        // Optimistic Response
+        const newLikeCount = isLiked ? Math.max(0, (template.likeCount || 0) - 1) : (template.likeCount || 0) + 1;
+
+        // Add to Queue
+        await postLikeQueue.add("post-like", {
+            postId: template._id.toString(),
+            userId: userId.toString(),
+            action: action,
+            itemType: "template"
+        }, {
+            removeOnComplete: true,
+            attempts: 3
+        });
+
+        res.status(200).json({ success: true, likeCount: newLikeCount, isLiked: !isLiked, queued: true });
+    } catch (error) {
+        logger.error("LIKE TEMPLATE ERROR", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+/* ------------------ ADD COMMENT TO TEMPLATE (Worker-based) ------------------ */
+export const addTemplateComment = asyncHandler(async (req, res) => {
+    try {
+        const { templateId } = req.params;
+        const { content, feedbackType = 'comment' } = req.body;
+        const userId = req.user._id || req.user.id;
+
+        if (!content) return res.status(400).json({ success: false, message: "Content required" });
+
+        const template = await ButtonTemplate.findById(templateId);
+        if (!template) return res.status(404).json({ success: false, message: "Template not found" });
+
+        // Create comment synchronously for immediate response
+        const comment = await Comment.create({
+            content,
+            template: template._id,
+            author: userId,
+            feedbackType
+        });
+
+        // Add to Queue for background processing (updating template's comment array)
+        await postCommentQueue.add("post-comment", {
+            postId: template._id.toString(),
+            commentId: comment._id.toString(),
+            itemType: "template"
+        }, {
+            removeOnComplete: true,
+            attempts: 3
+        });
+        
+        // Populate author for immediate return
+        await comment.populate("author", "name username profilePicture avatar");
+
+        res.status(201).json({ success: true, comment, queued: true });
+    } catch (error) {
+        logger.error("ADD TEMPLATE COMMENT ERROR", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+/* ------------------ GET TEMPLATE COMMENTS ------------------ */
+export const getTemplateComments = asyncHandler(async (req, res) => {
+    try {
+         const { templateId } = req.params;
+         const page = parseInt(req.query.page) || 1;
+         const limit = parseInt(req.query.limit) || 50;
+         const skip = (page - 1) * limit;
+
+         const template = await ButtonTemplate.findById(templateId).select("_id");
+         if (!template) return res.status(404).json({ success: false, message: "Template not found" });
+
+         const comments = await Comment.find({ template: template._id })
+            .populate("author", "name username profilePicture avatar")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+         const total = await Comment.countDocuments({ template: template._id });
+
+         res.status(200).json({ 
+             success: true, 
+             data: comments,
+             pagination: {
+                 total,
+                 page,
+                 hasMore: skip + comments.length < total
+             }
+         });
+    } catch (err) {
+        logger.error("GET TEMPLATE COMMENTS ERROR", err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+/* ------------------ DELETE TEMPLATE COMMENT ------------------ */
+export const deleteTemplateComment = asyncHandler(async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const userId = req.user._id || req.user.id;
+
+        const comment = await Comment.findById(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: "Comment not found" });
+
+        // Check ownership
+        if (comment.author.toString() !== userId.toString()) {
+             return res.status(403).json({ success: false, message: "Unauthorized" });
+        }
+
+        await Comment.findByIdAndDelete(commentId);
+        // Also remove from Template
+        if (comment.template) {
+            await ButtonTemplate.findByIdAndUpdate(comment.template, { $pull: { comments: commentId } });
+        }
+
+        res.status(200).json({ success: true, message: "Comment deleted" });
+    } catch (err) {
+        logger.error("DELETE TEMPLATE COMMENT ERROR", err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
 });
 
 /* ------------------ SHARE TEMPLATE ------------------ */

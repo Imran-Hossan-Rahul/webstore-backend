@@ -1,6 +1,7 @@
 import Comment from "../models/Comment.model.js";
 import Post from "../models/Post.model.js";
 import Blog from "../models/blog.model.js";
+import ButtonTemplate from "../models/Template.model.js";
 import logger from "../utils/logger.js";
 import mongoose from "mongoose";
 
@@ -19,8 +20,10 @@ export const addComment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Comment content is required" });
     }
 
-    // Determine if postId belongs to a Blog or Post
+    // Determine if postId belongs to a Blog, Template, or Post
     const isBlog = await Blog.exists({ _id: postId, isDeleted: false });
+    const isTemplate = !isBlog && await ButtonTemplate.exists({ _id: postId, isActive: true });
+    
     const commentData = {
         author: userId,
         user: userId,
@@ -28,8 +31,11 @@ export const addComment = async (req, res) => {
         feedbackType,
         parentComment: parentComment || null,
     };
+    
     if (isBlog) {
         commentData.blog = postId;
+    } else if (isTemplate) {
+        commentData.template = postId;
     } else {
         commentData.post = postId;
     }
@@ -38,7 +44,7 @@ export const addComment = async (req, res) => {
     const newComment = await Comment.create(commentData);
 
     // Update parent model count + array reference
-    const Model = isBlog ? Blog : Post;
+    const Model = isBlog ? Blog : isTemplate ? ButtonTemplate : Post;
     await Model.findByIdAndUpdate(postId, {
         $inc: { commentsCount: 1 },
         $push: { comments: newComment._id }
@@ -73,8 +79,8 @@ export const getComments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 300;
     const skip = (page - 1) * limit;
 
-    // Query matches both post and blog comments
-    const query = { $or: [{ post: postId }, { blog: postId }] };
+    // Query matches blog, template, and post comments
+    const query = { $or: [{ post: postId }, { blog: postId }, { template: postId }] };
 
     const comments = await Comment.find(query)
       .sort({ createdAt: -1 })

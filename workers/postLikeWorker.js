@@ -3,6 +3,7 @@ import redis from "../config/redis.js";
 import mongoose from "mongoose";
 import Post from "../models/Post.model.js";
 import Blog from "../models/blog.model.js";
+import ButtonTemplate from "../models/Template.model.js";
 
 
 
@@ -20,8 +21,8 @@ const worker = new Worker(
       throw new Error("Missing parameters: postId or userId");
     }
 
-    const Model = itemType === "blog" ? Blog : Post;
-    const countField = itemType === "blog" ? "likesCount" : "likes";
+    const Model = itemType === "blog" ? Blog : itemType === "template" ? ButtonTemplate : Post;
+    const countField = itemType === "blog" ? "likesCount" : "likeCount";
     const arrayField = itemType === "blog" ? "likes" : "likedBy";
 
     // ----------------------------

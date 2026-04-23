@@ -36,7 +36,7 @@ const optionalAuth = async (req, res, next) => {
 router.post(
   "/create",
   protect,
-  creatorOnly,
+  // creatorOnly, // Commented out - anyone can create creator account now
   validate(createCreatorSchema()),
   createCreatorAccount
 );

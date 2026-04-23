@@ -228,10 +228,27 @@ export const getPublicCreatorProfile = async (req, res) => {
       },
     ]);
 
+    // --- Aggregate template stats ---
+    const ButtonTemplate = (await import("../models/Template.model.js")).default;
+    const [templateStats] = await ButtonTemplate.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId), isActive: true } },
+      {
+        $group: {
+          _id: null,
+          totalTemplates: { $sum: 1 },
+          totalTemplateViews: { $sum: { $ifNull: ["$viewsCount", 0] } },
+          totalTemplateLikes: { $sum: { $ifNull: ["$likeCount", 0] } },
+          totalDownloads: { $sum: { $ifNull: ["$downloadsCount", 0] } },
+        },
+      },
+    ]);
+
     const realStats = {
       totalBlogs: blogStats?.totalBlogs || 0,
-      totalViews: blogStats?.totalViews || 0,
-      totalLikes: blogStats?.totalLikes || 0,
+      totalViews: (blogStats?.totalViews || 0) + (templateStats?.totalTemplateViews || 0),
+      totalLikes: (blogStats?.totalLikes || 0) + (templateStats?.totalTemplateLikes || 0),
+      totalTemplates: templateStats?.totalTemplates || 0,
+      totalDownloads: templateStats?.totalDownloads || 0,
     };
 
     // --- First try full creator profile ---
@@ -244,9 +261,13 @@ export const getPublicCreatorProfile = async (req, res) => {
       const targetUser = await User.findById(userId).select("followers following");
       const followerCount = targetUser?.followers?.length || 0;
       const followingCount = targetUser?.following?.length || 0;
-      const isFollowing = requesterId
-        ? targetUser?.followers?.some((id) => id.toString() === requesterId)
+      
+      // Fix: Convert both to string for proper comparison
+      const isFollowing = requesterId && targetUser?.followers
+        ? targetUser.followers.some((id) => id.toString() === requesterId.toString())
         : false;
+
+      console.log('Follow Check (Full Creator):', { requesterId, followers: targetUser?.followers?.map(id => id.toString()), isFollowing });
 
       return res.status(200).json({
         success: true,
@@ -255,6 +276,8 @@ export const getPublicCreatorProfile = async (req, res) => {
           totalBlogs: realStats.totalBlogs,
           totalViews: realStats.totalViews,
           totalLikes: realStats.totalLikes,
+          totalTemplates: realStats.totalTemplates,
+          totalDownloads: realStats.totalDownloads,
           followerCount,
           followingCount,
         },
@@ -274,9 +297,13 @@ export const getPublicCreatorProfile = async (req, res) => {
 
     const followerCount = user.followers?.length || 0;
     const followingCount = user.following?.length || 0;
-    const isFollowing = requesterId
-      ? user.followers?.some((id) => id.toString() === requesterId)
+    
+    // Fix: Convert both to string for proper comparison
+    const isFollowing = requesterId && user.followers
+      ? user.followers.some((id) => id.toString() === requesterId.toString())
       : false;
+
+    console.log('Follow Check (Fallback):', { requesterId, followers: user.followers?.map(id => id.toString()), isFollowing });
 
     const syntheticProfile = {
       _id: user._id,
@@ -289,7 +316,8 @@ export const getPublicCreatorProfile = async (req, res) => {
       totalBlogs: realStats.totalBlogs,
       totalViews: realStats.totalViews,
       totalLikes: realStats.totalLikes,
-      totalTemplates: 0,
+      totalTemplates: realStats.totalTemplates,
+      totalDownloads: realStats.totalDownloads,
       followerCount,
       followingCount,
       isVerified: false,

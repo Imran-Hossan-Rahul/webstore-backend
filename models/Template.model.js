@@ -97,6 +97,9 @@ const buttonTemplateSchema = new Schema(
       }
     ],
 
+    comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
+    commentsCount: { type: Number, default: 0 },
+
     salesCount: { type: Number, default: 0 },
     downloadsCount: { type: Number, default: 0 },
     downloadHistory: [
@@ -132,10 +135,19 @@ const buttonTemplateSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "flagged"],
       default: "pending",
     },
     verifiedSeller: { type: Boolean, default: false },
+
+    // Security scan result
+    scanResult: {
+      scanned: { type: Boolean, default: false },
+      passed: { type: Boolean, default: false },
+      errors: [{ type: String }],
+      warnings: [{ type: String }],
+      scannedAt: { type: Date },
+    },
 
     versions: [
       {

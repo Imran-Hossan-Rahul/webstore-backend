@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Comment from "../models/Comment.model.js";
 import Post from "../models/Post.model.js";
 import Blog from "../models/blog.model.js";
+import ButtonTemplate from "../models/Template.model.js";
 
 
 
@@ -18,17 +19,33 @@ import Blog from "../models/blog.model.js";
 const worker = new Worker(
   "post-comment-queue",
   async (job) => {
-    const { postId, userId, content, parentComment, itemType = "post" } = job.data;
+    const { postId, commentId, userId, content, parentComment, itemType = "post" } = job.data;
 
+    // If commentId is provided, just update the parent model
+    if (commentId) {
+      const Model = itemType === "blog" ? Blog : itemType === "template" ? ButtonTemplate : Post;
+      
+      await Model.findByIdAndUpdate(postId, { 
+        $inc: { commentsCount: 1 },
+        $push: { comments: commentId }
+      });
+
+      console.log(`Comment ${commentId} linked to ${itemType} ${postId}`);
+      return { status: "done", commentId };
+    }
+
+    // Legacy flow: Create comment in worker (for backward compatibility)
     const commentData = {
       content,
       user: userId,
-      author: userId, // Keeping both fields for compatibility if needed
+      author: userId,
       parentComment: parentComment || null
     };
 
     if (itemType === "blog") {
       commentData.blog = postId;
+    } else if (itemType === "template") {
+      commentData.template = postId;
     } else {
       commentData.post = postId;
     }
@@ -36,18 +53,15 @@ const worker = new Worker(
     // Create Comment
     const newComment = await Comment.create(commentData);
 
-    const Model = itemType === "blog" ? Blog : Post;
+    const Model = itemType === "blog" ? Blog : itemType === "template" ? ButtonTemplate : Post;
 
     // Update Comment Array and Count
     await Model.findByIdAndUpdate(postId, { 
       $inc: { commentsCount: 1 },
-      $push: { comments: newComment._id } // Maintain array population
+      $push: { comments: newComment._id }
     });
 
     console.log(`Comment ${newComment._id} added to ${itemType} ${postId}`);
-
-    // TODO: Trigger Notification Worker here if needed
-    // notificationQueue.add("notify-comment", { ... })
 
     return { status: "done", commentId: newComment._id };
   },

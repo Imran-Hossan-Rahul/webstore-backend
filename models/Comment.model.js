@@ -20,6 +20,12 @@ const commentSchema = new mongoose.Schema(
         required: false,
         index: true,
     },
+    template: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ButtonTemplate",
+        required: false,
+        index: true,
+    },
     author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

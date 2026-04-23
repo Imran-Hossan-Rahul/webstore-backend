@@ -12,6 +12,7 @@ import { confirmPurchase, downloadTemplate } from "../controllers/downloadContro
 import {
   createTemplate,
   getTemplates,
+  getTemplateById,
   getUserTemplates,
   deleteTemplate,
   // updateTemplate,
@@ -20,8 +21,14 @@ import {
   getPopularTemplates,
   getTrendingTemplates,
   getEditorsChoiceTemplates,
-  shareTemplate
+  shareTemplate,
+  likeTemplate,
+  addTemplateComment,
+  getTemplateComments,
+  deleteTemplateComment
 } from "../controllers/buttonTemplateController.js";
+
+import { getPopularCategories, getTrendingTemplateTags } from "../controllers/templateStatsController.js";
 
 import { incrementImpression } from "../controllers/buttonTemplateController.js";
 import { incrementView } from "../controllers/buttonTemplateController.js";
@@ -31,11 +38,7 @@ import {
   protect,
   templateOwnerOrAdmin,
 } from "../middlewares/authMiddleware.js";
-import {
-  createTemplateSchema,
-  // updateTemplateSchema,
-} from "../validation/buttonTemplateValidation.js";
-import { toggleLike } from "../controllers/likeController.js";
+import { createTemplateSchema } from "../validation/buttonTemplateValidation.js";
 
 
 const router = express.Router();
@@ -161,7 +164,11 @@ router.post(
 
 router.post("/impression", incrementImpression);
 
-router.post("/:templateId/like", protect, toggleLike); // no auth needed
+// Like and Comment Routes (Worker-based)
+router.post("/:templateId/like", protect, likeTemplate);
+router.post("/:templateId/comment", protect, addTemplateComment);
+router.get("/:templateId/comments", getTemplateComments);
+router.delete("/comment/:commentId", protect, deleteTemplateComment);
 
 
 router.post(
@@ -258,6 +265,10 @@ router.get("/featured/popular", getPopularTemplates);
 router.get("/featured/trending", getTrendingTemplates);
 router.get("/featured/editors-choice", getEditorsChoiceTemplates);
 
+// Template stats
+router.get("/popular-categories", getPopularCategories);
+router.get("/trending-tags", getTrendingTemplateTags);
+
 /* ---------------------------------------
    USER ROUTES (Protected)
 ----------------------------------------- */
@@ -267,6 +278,9 @@ router.get("/my-templates", protect, getUserTemplates);
 
 // Template analytics
 router.get("/:id/analytics", protect, getTemplateAnalytics);
+
+// Get single template by ID (must be after specific routes like /count, /featured/*)
+router.get("/:id", getTemplateById);
 
 
 

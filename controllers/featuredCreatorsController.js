@@ -1,5 +1,6 @@
 import User from '../models/User.model.js';
 import Post from '../models/Post.model.js';
+import CreatorProfile from '../models/CreatorProfile.model.js';
 
 /**
  * @desc    Get featured/random creators for spotlight
@@ -10,12 +11,12 @@ export const getFeaturedCreators = async (req, res) => {
     try {
         const { limit = 1 } = req.query;
 
-        // Get random creators who have role 'creator' and have at least one post
+        // Get random creators who have creator account and at least one post
         const creators = await User.aggregate([
             {
                 $match: {
-                    role: 'creator',
-                    isActive: { $ne: false } // Exclude inactive users
+                    hasCreatorAccount: true,
+                    isActive: { $ne: false }
                 }
             },
             {
@@ -33,23 +34,20 @@ export const getFeaturedCreators = async (req, res) => {
             },
             {
                 $match: {
-                    postCount: { $gt: 0 } // Only creators with at least 1 post
+                    postCount: { $gt: 0 }
                 }
             },
             {
-                $sample: { size: parseInt(limit) } // Random selection
+                $sample: { size: parseInt(limit) }
             },
             {
                 $project: {
                     _id: 1,
                     name: 1,
                     email: 1,
-                    avatar: 1,
+                    profilePicture: 1,
                     bio: 1,
-                    role: 1,
                     skills: 1,
-                    location: 1,
-                    website: 1,
                     postCount: 1,
                     createdAt: 1
                 }
@@ -66,6 +64,7 @@ export const getFeaturedCreators = async (req, res) => {
 
                 return {
                     ...creator,
+                    avatar: creator.profilePicture || null,
                     recentPosts: recentPosts.map(post => ({
                         images: post.images
                     }))
