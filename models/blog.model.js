@@ -77,6 +77,34 @@ const blogSchema = new mongoose.Schema(
     isPublished: { type: Boolean, default: false, index: true },
     isDeleted: { type: Boolean, default: false, index: true },
     readTime: { type: String, default: "1 min read" },
+    
+    // New fields for enhanced blog cards
+    subtitle: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    keyTakeaways: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function(arr) {
+          return arr.length <= 10; // Max 10 takeaways
+        },
+        message: 'Maximum 10 key takeaways allowed'
+      }
+    },
+    proTips: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function(arr) {
+          return arr.length <= 10; // Max 10 pro tips
+        },
+        message: 'Maximum 10 pro tips allowed'
+      }
+    },
+    
     views: { type: Number, default: 0, min: 0 },
     impressions: { type: Number, default: 0, min: 0 },
     impressionHistory: [

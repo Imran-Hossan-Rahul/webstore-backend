@@ -1,16 +1,35 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+
+const uploadDir = path.resolve("uploads/");
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Upload storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); // uploads folder project root এ থাকতে হবে
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    // filename: timestamp + original name
-    const ext = path.extname(file.originalname);
-    const name = file.fieldname + "-" + Date.now() + ext;
-    cb(null, name);
+    // Sanitize filename to prevent path traversal
+    const sanitizedOriginalName = path.basename(file.originalname);
+    const ext = path.extname(sanitizedOriginalName);
+    const nameWithoutExt = path.basename(sanitizedOriginalName, ext);
+    // Remove any non-alphanumeric characters except dash and underscore
+    const safeName = nameWithoutExt.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const finalName = file.fieldname + "-" + Date.now() + "-" + safeName + ext;
+    
+    // Verify the final path is within uploadDir
+    const finalPath = path.join(uploadDir, finalName);
+    if (!finalPath.startsWith(uploadDir)) {
+      return cb(new Error('Invalid file path detected'));
+    }
+    
+    cb(null, finalName);
   },
 });
 

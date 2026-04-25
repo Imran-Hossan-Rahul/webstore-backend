@@ -34,6 +34,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import challengeRoutes from "./routes/challengeRoutes.js"; // Import Challenges
 import communityRoutes from "./routes/communityRoutes.js";
+import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
 
 const app = express();
 const server = createServer(app);
@@ -41,11 +42,19 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      if (
-        !origin ||
-        [CLIENT_URL, "http://localhost:3000", "http://localhost:3001"].includes(origin) ||
-        origin.endsWith(".vercel.app")
-      ) {
+      const allowedSocketOrigins = [
+        CLIENT_URL, 
+        "http://localhost:3000", 
+        "http://localhost:3001"
+      ];
+      
+      // Add production domain
+      const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN;
+      if (PRODUCTION_DOMAIN) {
+        allowedSocketOrigins.push(`https://${PRODUCTION_DOMAIN}`);
+      }
+      
+      if (!origin || allowedSocketOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -125,6 +134,11 @@ import { setIO } from "./utils/socketManager.js";
 setIO(io);
 
 // ---------------- Middleware ----------------
+// Security middlewares (must be first)
+app.use(removeSensitiveHeaders);
+app.use(enforceHTTPS);
+app.use(securityHeaders);
+
 app.use(
   helmet({
     contentSecurityPolicy: { useDefaults: true },
@@ -138,18 +152,29 @@ const allowedOrigins = [
   "http://localhost:3001",
 ];
 
+// Add your production Vercel domain here
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN; // e.g., "your-app.vercel.app"
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (
-        !origin || 
-        allowedOrigins.includes(origin) || 
-        origin.endsWith(".vercel.app") // Allow dynamic Vercel preview domains
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
       }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Check if it's your production Vercel domain
+      if (PRODUCTION_DOMAIN && origin === `https://${PRODUCTION_DOMAIN}`) {
+        return callback(null, true);
+      }
+      
+      // Reject all other origins
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })

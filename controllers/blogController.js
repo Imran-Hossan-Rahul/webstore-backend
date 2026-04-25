@@ -9,7 +9,7 @@ import redis from "../config/redis.js";
 ------------------------- */
 export const createBlog = async (req, res) => {
   try {
-    const { title, content, tags, category, coverImage, cardShape } = req.body;
+    const { title, content, tags, category, coverImage, cardShape, subtitle, proTips, keyTakeaways } = req.body;
 
 
 
@@ -36,6 +36,9 @@ export const createBlog = async (req, res) => {
       category,
       coverImage,
       cardShape,
+      subtitle,
+      proTips,
+      keyTakeaways,
       readTime,
       author: userId,
       isPublished: false,
@@ -101,6 +104,10 @@ export const getAllBlogs = async (req, res) => {
           likesCount: 1,
           createdAt: 1,
           author: 1,
+          subtitle: 1,
+          proTips: 1,
+          keyTakeaways: 1,
+          readTime: 1,
           // Only return coverImage if it's short (likely a URL), otherwise null
           coverImage: {
             $cond: {
@@ -141,6 +148,10 @@ export const getAllBlogs = async (req, res) => {
           likesCount: 1,
           createdAt: 1,
           coverImage: 1,
+          subtitle: 1,
+          proTips: 1,
+          keyTakeaways: 1,
+          readTime: 1,
           "author._id": 1,
           "author.name": 1,
           "author.email": 1,
@@ -815,7 +826,7 @@ export const updateBlog = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const fields = ["title", "content", "tags", "category", "coverImage", "cardShape"];
+    const fields = ["title", "content", "tags", "category", "coverImage", "cardShape", "subtitle", "proTips", "keyTakeaways"];
 
     fields.forEach((field) => {
       if (req.body[field] !== undefined) blog[field] = req.body[field];

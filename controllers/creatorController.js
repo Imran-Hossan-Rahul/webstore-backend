@@ -102,9 +102,52 @@ export const getCreatorProfile = async (req, res) => {
       });
     }
 
+    // --- Aggregate real stats from Blog collection ---
+    const [blogStats] = await Blog.aggregate([
+      { $match: { author: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: null,
+          totalBlogs: { $sum: 1 },
+          totalViews: { $sum: { $ifNull: ["$views", 0] } },
+          totalLikes: { $sum: { $ifNull: ["$likesCount", 0] } },
+        },
+      },
+    ]);
+
+    // --- Aggregate template stats ---
+    const ButtonTemplate = (await import("../models/Template.model.js")).default;
+    const [templateStats] = await ButtonTemplate.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId), isActive: true } },
+      {
+        $group: {
+          _id: null,
+          totalTemplates: { $sum: 1 },
+          totalTemplateViews: { $sum: { $ifNull: ["$viewsCount", 0] } },
+          totalTemplateLikes: { $sum: { $ifNull: ["$likeCount", 0] } },
+          totalDownloads: { $sum: { $ifNull: ["$downloadsCount", 0] } },
+        },
+      },
+    ]);
+
+    const realStats = {
+      totalBlogs: blogStats?.totalBlogs || 0,
+      totalViews: (blogStats?.totalViews || 0) + (templateStats?.totalTemplateViews || 0),
+      totalLikes: (blogStats?.totalLikes || 0) + (templateStats?.totalTemplateLikes || 0),
+      totalTemplates: templateStats?.totalTemplates || 0,
+      totalDownloads: templateStats?.totalDownloads || 0,
+    };
+
     return res.status(200).json({
       success: true,
-      data: creatorProfile,
+      data: {
+        ...creatorProfile.toObject(),
+        totalBlogs: realStats.totalBlogs,
+        totalViews: realStats.totalViews,
+        totalLikes: realStats.totalLikes,
+        totalTemplates: realStats.totalTemplates,
+        totalDownloads: realStats.totalDownloads,
+      },
     });
   } catch (err) {
     logger.error("Get Creator Profile Error: ", err);
@@ -223,7 +266,7 @@ export const getPublicCreatorProfile = async (req, res) => {
           _id: null,
           totalBlogs: { $sum: 1 },
           totalViews: { $sum: { $ifNull: ["$views", 0] } },
-          totalLikes: { $sum: { $size: { $ifNull: ["$likedBy", []] } } },
+          totalLikes: { $sum: { $ifNull: ["$likesCount", 0] } },
         },
       },
     ]);
