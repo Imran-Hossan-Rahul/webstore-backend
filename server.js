@@ -54,7 +54,8 @@ const io = new Server(server, {
         allowedSocketOrigins.push(`https://${PRODUCTION_DOMAIN}`);
       }
       
-      if (!origin || allowedSocketOrigins.includes(origin)) {
+      // Allow all Vercel deployments
+      if (!origin || allowedSocketOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -62,7 +63,15 @@ const io = new Server(server, {
     },
     methods: ["GET", "POST"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   },
+  // Important for Render.com and cloud platforms
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 1e8,
 });
 
 // Make io accessible globally
@@ -170,6 +179,11 @@ app.use(
       
       // Check if it's your production Vercel domain
       if (PRODUCTION_DOMAIN && origin === `https://${PRODUCTION_DOMAIN}`) {
+        return callback(null, true);
+      }
+      
+      // Allow all Vercel preview deployments
+      if (origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
       
