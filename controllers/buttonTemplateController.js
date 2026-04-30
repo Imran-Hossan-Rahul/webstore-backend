@@ -179,6 +179,7 @@ export const getTemplates = asyncHandler(async (req, res) => {
         .sort(sortQuery)
         .skip(skip)
         .limit(limit)
+        .populate("comments", "feedbackType")
         .lean();
     }
 
@@ -477,7 +478,8 @@ export const getTrendingTemplates = asyncHandler(async (req, res) => {
       isActive: true,
     })
       .lean()
-      .populate("user", "name email");
+      .populate("user", "name email")
+      .populate("comments", "feedbackType");
     const map = new Map(docs.map((d) => [d._id.toString(), d]));
     const ordered = ids.map((id) => map.get(id)).filter(Boolean);
     return res.status(200).json({ success: true, data: ordered });
@@ -490,7 +492,8 @@ export const getTrendingTemplates = asyncHandler(async (req, res) => {
     .sort({ trendingScore: -1 })
     .limit(TOPN)
     .lean()
-    .populate("user", "name email");
+    .populate("user", "name email")
+    .populate("comments", "feedbackType");
   return res.status(200).json({ success: true, data: templates });
 });
 
@@ -506,7 +509,8 @@ export const getPopularTemplates = asyncHandler(async (req, res) => {
       isActive: true,
     })
       .lean()
-      .populate("user", "name email");
+      .populate("user", "name email")
+      .populate("comments", "feedbackType");
     const map = new Map(docs.map((d) => [d._id.toString(), d]));
     const ordered = ids.map((id) => map.get(id)).filter(Boolean);
     return res.status(200).json({ success: true, data: ordered });
@@ -516,7 +520,8 @@ export const getPopularTemplates = asyncHandler(async (req, res) => {
     .sort({ popularityScore: -1 })
     .limit(TOPN)
     .lean()
-    .populate("user", "name email");
+    .populate("user", "name email")
+    .populate("comments", "feedbackType");
   return res.status(200).json({ success: true, data: templates });
 });
 
@@ -533,7 +538,8 @@ export const getEditorsChoiceTemplates = asyncHandler(async (req, res) => {
       isActive: true,
     })
       .limit(10)
-      .populate("user", "name email");
+      .populate("user", "name email")
+      .populate("comments", "feedbackType");
     await redis.set(cacheKey, JSON.stringify(templates), "EX", CACHE_TTL);
 
     return res.status(200).json({ success: true, data: templates });

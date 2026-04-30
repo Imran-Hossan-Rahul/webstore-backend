@@ -80,6 +80,7 @@ class RecommendationService {
         const rawTemplates = await ButtonTemplate.find({ isActive: true })
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
+          .populate({ path: 'comments', select: 'feedbackType' })
           .lean();
 
         // Batch fetch users for templates
@@ -104,6 +105,7 @@ class RecommendationService {
         const rawBlogs = await Blog.find({ isPublished: true, isDeleted: false })
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
+          .populate({ path: 'comments', select: 'feedbackType' })
           .lean();
 
         // Step 2: Collect unique author IDs and batch fetch users
@@ -133,6 +135,7 @@ class RecommendationService {
               select: "name profilePicture email creatorProfileId",
               populate: { path: "creatorProfileId", select: "profilePicture" }
           })
+          .populate({ path: 'comments', select: 'feedbackType' })
           .lean();
         candidates.push(...posts.map(p => ({ ...p, type: 'project' })));
       }
@@ -278,6 +281,7 @@ class RecommendationService {
         views: item.views || item.viewsCount || 0,
         likes: Math.max(item.likesCount || 0, Array.isArray(item.likes) ? item.likes.length : (typeof item.likes === 'number' ? item.likes : (item.likeCount || 0))),
         commentsCount: Math.max(item.commentsCount || 0, Array.isArray(item.comments) ? item.comments.length : 0),
+        comments: Array.isArray(item.comments) ? item.comments : [],
         isLiked: !!isLiked,
         debugScore: Math.round(item.score)
     };

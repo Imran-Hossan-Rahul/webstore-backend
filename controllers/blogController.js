@@ -108,6 +108,7 @@ export const getAllBlogs = async (req, res) => {
           proTips: 1,
           keyTakeaways: 1,
           readTime: 1,
+          comments: 1,
           // Only return coverImage if it's short (likely a URL), otherwise null
           coverImage: {
             $cond: {
@@ -116,6 +117,17 @@ export const getAllBlogs = async (req, res) => {
               else: "$coverImage" // Short enough (URL), send it
             }
           }
+        }
+      },
+      {
+        $lookup: {
+          from: "comments",
+          localField: "comments",
+          foreignField: "_id",
+          pipeline: [
+            { $project: { feedbackType: 1 } }
+          ],
+          as: "comments"
         }
       },
       {
@@ -152,6 +164,7 @@ export const getAllBlogs = async (req, res) => {
           proTips: 1,
           keyTakeaways: 1,
           readTime: 1,
+          comments: 1,
           "author._id": 1,
           "author.name": 1,
           "author.email": 1,
@@ -572,7 +585,7 @@ export const likeBlog = async (req, res) => {
 export const addComment = async (req, res) => {
     try {
         const { slug } = req.params;
-        const { content } = req.body;
+        const { content, feedbackType = 'comment' } = req.body;
         const userId = req.user._id || req.user.id;
 
         if (!content) return res.status(400).json({ message: "Content required" });
@@ -583,7 +596,8 @@ export const addComment = async (req, res) => {
         const comment = await Comment.create({
             content,
             blog: blog._id,
-            author: userId
+            author: userId,
+            feedbackType
         });
 
         blog.comments.push(comment._id);
