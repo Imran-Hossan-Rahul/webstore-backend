@@ -491,7 +491,7 @@ const startServer = async () => {
     // Start challenge phase auto-transition scheduler (runs every 5 min)
     startChallengePhaseScheduler();
 
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${PORT}`);
     });
   } catch (err) {
