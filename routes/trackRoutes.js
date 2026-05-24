@@ -1,41 +1,31 @@
 import express from "express";
-import { trackVisitorController, trackEventController, trackSessionController } from "../controllers/statsController.js";
-import { protect, adminOnly, superAdminOnly } from "../middlewares/authMiddleware.js";
+import {
+  trackVisitorController,
+  trackEventController,
+  trackSessionController,
+  trackHeartbeatController,
+} from "../controllers/statsController.js";
 import { trackBotFilter, trackRateLimit } from "../middlewares/trackMiddleware.js";
+import { optionalProtect } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-/**
- * ----------------------------
- * Tracking Routes
- * ----------------------------
- * Public or logged-in users
- * Bot filter + Rate-limit applied
- * Logged-in users attach linkedUser
- */
+router.use(optionalProtect);
 
-// Track first visitor hit / page load
-// Track first visitor hit / page load
-router.post(
-  "/visit",
-  trackBotFilter,
-  trackRateLimit,
-  trackVisitorController
-);
+// Track first visitor hit / page load (with device fingerprint)
+router.post("/visit", trackBotFilter, trackRateLimit, trackVisitorController);
 
-// Track events (click, scroll, pageview, custom)
-router.post(
-  "/event",
-  trackBotFilter,
-  trackRateLimit,
-  trackEventController
-);
+// Track granular events (click, scroll, rage_click, exit_intent, heartbeat, etc.)
+router.post("/event", trackBotFilter, trackRateLimit, trackEventController);
 
-// Track session end / update
-router.post(
-  "/session",
-  trackBotFilter,
-  trackRateLimit,
-  trackSessionController
-);
+// Track session end with full summary (engagement score, scroll depth, etc.)
+router.post("/session", trackBotFilter, trackRateLimit, trackSessionController);
+
+// Heartbeat — every 5s, proves user is actively on page
+router.post("/heartbeat", trackBotFilter, trackHeartbeatController);
+
+// Batch — handles batched events (efficient for mobile/high-traffic)
+router.post("/batch", trackBotFilter, trackEventController);
+
 export default router;
+

@@ -44,7 +44,7 @@ const testNotifications = async () => {
         type: "like",
         title: "New Like",
         message: `${user2.name} liked your post`,
-        link: `/templates/123`
+        link: `/artifacts/123`
       },
       {
         recipient: user2._id,
@@ -52,13 +52,13 @@ const testNotifications = async () => {
         type: "comment",
         title: "New Comment",
         message: `${user1.name} commented on your post`,
-        link: `/templates/456`
+        link: `/artifacts/456`
       },
       {
         recipient: user2._id,
         type: "system",
         title: "Welcome!",
-        message: "Welcome to our platform. Start exploring amazing templates!",
+        message: "Welcome to our platform. Start exploring amazing artifacts!",
         link: `/`
       }
     ];
@@ -83,3 +83,4 @@ const testNotifications = async () => {
 };
 
 testNotifications();
+

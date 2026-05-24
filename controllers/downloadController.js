@@ -1,88 +1,88 @@
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import Transaction from "../models/Transaction.model.js";
 import AppError from "../utils/AppError.js";
 
 /**
- * Download template controller
- * Handles both free and paid template downloads
+ * Download artifact controller
+ * Handles both free and paid artifact downloads
  */
-export const downloadTemplate = async (req, res, next) => {
+export const downloadArtifact = async (req, res, next) => {
   try {
-    const { templateId } = req.params;
+    const { artifactId } = req.params;
     const userId = req.user?._id || req.user?.id;
 
-    const template = await ButtonTemplate.findById(templateId);
+    const artifact = await Artifact.findById(artifactId);
 
-    if (!template) {
-      return next(new AppError("Template not found", 404));
+    if (!artifact) {
+      return next(new AppError("Artifact not found", 404));
     }
 
-    // Free template → direct download (no auth required)
-    if (template.priceType === "free") {
+    // Free artifact → direct download (no auth required)
+    if (artifact.priceType === "free") {
       // Increment download count
-      await template.incrementDownloads(1, userId);
+      await artifact.incrementDownloads(1, userId);
       return res.status(200).json({
         success: true,
-        url: template.projectFile,
+        url: artifact.devlogFile,
         free: true,
       });
     }
 
-    // Paid template → user must be logged in
+    // Paid artifact → user must be logged in
     if (!userId) {
       return res.status(403).json({
         success: false,
-        message: "Login & purchase required for paid templates",
+        message: "Login & purchase required for paid artifacts",
         paid: true,
         requiresAuth: true,
       });
     }
 
-    // Check if user already purchased (check both template.purchasedBy and Transaction)
-    const hasPurchasedInTemplate = template.purchasedBy.some(
+    // Check if user already purchased (check both artifact.purchasedBy and Transaction)
+    const hasPurchasedInArtifact = artifact.purchasedBy.some(
       (id) => id.toString() === userId.toString()
     );
 
     // Also check transaction record for extra security
     const hasValidTransaction = await Transaction.findOne({
       buyer: userId,
-      template: templateId,
+      artifact: artifactId,
       status: "completed",
     });
 
-    const hasPurchased = hasPurchasedInTemplate || !!hasValidTransaction;
+    const hasPurchased = hasPurchasedInArtifact || !!hasValidTransaction;
 
     if (!hasPurchased) {
       // Calculate final price with discount
       const finalPrice =
-        template.discount > 0
-          ? template.price * (1 - template.discount / 100)
-          : template.price;
+        artifact.discount > 0
+          ? artifact.price * (1 - artifact.discount / 100)
+          : artifact.price;
 
       return res.status(403).json({
         success: false,
-        message: "Please purchase this template before downloading",
+        message: "Please purchase this artifact before downloading",
         paid: true,
         requiresPurchase: true,
-        templateId,
-        price: template.price,
+        artifactId,
+        price: artifact.price,
         finalPrice: Math.round(finalPrice * 100) / 100,
-        discount: template.discount || 0,
-        currency: template.currency || "USD",
-        title: template.title,
-        thumbnail: template.thumbnailSource,
+        discount: artifact.discount || 0,
+        currency: artifact.currency || "TKNS",
+        title: artifact.title,
+        thumbnail: artifact.thumbnailSource,
       });
     }
 
     // User purchased → allow download
-    await template.incrementDownloads(1, userId);
+    await artifact.incrementDownloads(1, userId);
     return res.status(200).json({
       success: true,
-      url: template.projectFile,
+      url: artifact.devlogFile,
       purchased: true,
     });
   } catch (error) {
-    console.error("Download template error:", error);
+    console.error("Download artifact error:", error);
     next(new AppError(error.message || "Failed to process download", 500));
   }
 };
@@ -93,21 +93,21 @@ export const downloadTemplate = async (req, res, next) => {
  */
 export const confirmPurchase = async (req, res, next) => {
   try {
-    const { templateId } = req.params;
+    const { artifactId } = req.params;
     const userId = req.user?._id || req.user?.id;
 
     if (!userId) {
       return next(new AppError("Login required", 401));
     }
 
-    const template = await ButtonTemplate.findById(templateId);
+    const artifact = await Artifact.findById(artifactId);
 
-    if (!template) {
-      return next(new AppError("Template not found", 404));
+    if (!artifact) {
+      return next(new AppError("Artifact not found", 404));
     }
 
     // Check if already purchased
-    if (template.purchasedBy.includes(userId)) {
+    if (artifact.purchasedBy.includes(userId)) {
       return res.status(200).json({
         success: true,
         message: "Purchase already confirmed",
@@ -117,7 +117,7 @@ export const confirmPurchase = async (req, res, next) => {
     // Check for valid transaction
     const transaction = await Transaction.findOne({
       buyer: userId,
-      template: templateId,
+      artifact: artifactId,
       status: "completed",
     });
 
@@ -131,10 +131,10 @@ export const confirmPurchase = async (req, res, next) => {
     }
 
     // Add to purchasedBy array
-    if (!template.purchasedBy.includes(userId)) {
-      template.purchasedBy.push(userId);
-      template.salesCount = (template.salesCount || 0) + 1;
-      await template.save();
+    if (!artifact.purchasedBy.includes(userId)) {
+      artifact.purchasedBy.push(userId);
+      artifact.salesCount = (artifact.salesCount || 0) + 1;
+      await artifact.save();
     }
 
     res.status(200).json({
@@ -145,3 +145,5 @@ export const confirmPurchase = async (req, res, next) => {
     next(new AppError(error.message || "Failed to confirm purchase", 500));
   }
 };
+
+

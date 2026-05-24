@@ -4,7 +4,7 @@ import User from "../models/User.model.js";
 import AppError from "../utils/AppError.js";
 
 /**
- * Get creator's payout summary
+ * Get craftsman's payout summary
  */
 export const getPayoutSummary = async (req, res, next) => {
   try {
@@ -15,7 +15,7 @@ export const getPayoutSummary = async (req, res, next) => {
     }
 
     const user = await User.findById(userId).select(
-      "totalEarnings totalPaidOut pendingPayout minimumPayoutThreshold payoutEnabled payoneerEmail payoutMethod"
+      "totalEarnings totalPaidOut pendingPayout minimumPayoutThreshold payoutEnabled payoutMethod"
     );
 
     if (!user) {
@@ -24,15 +24,15 @@ export const getPayoutSummary = async (req, res, next) => {
 
     // Get pending transactions
     const pendingTransactions = await Transaction.find({
-      creator: userId,
+      craftsman: userId,
       status: "completed",
       payoutStatus: "pending",
     })
-      .select("amount creatorAmount createdAt template")
-      .populate("template", "title");
+      .select("amount craftsmanAmount createdAt artifact")
+      .populate("artifact", "title");
 
     // Get recent payouts
-    const recentPayouts = await Payout.find({ creator: userId })
+    const recentPayouts = await Payout.find({ craftsman: userId })
       .sort({ createdAt: -1 })
       .limit(10)
       .select("amount status createdAt processedAt");
@@ -48,8 +48,7 @@ export const getPayoutSummary = async (req, res, next) => {
         minimumThreshold: user.minimumPayoutThreshold || 50,
         canRequestPayout,
         payoutEnabled: user.payoutEnabled || false,
-        payoutMethod: user.payoutMethod || "payoneer",
-        payoneerEmail: user.payoneerEmail || null,
+        payoutMethod: user.payoutMethod || "internal_wallet",
       },
       pendingTransactions: pendingTransactions || [],
       recentPayouts: recentPayouts || [],
@@ -60,7 +59,7 @@ export const getPayoutSummary = async (req, res, next) => {
 };
 
 /**
- * Request payout (creator)
+ * Request payout (craftsman)
  */
 export const requestPayout = async (req, res, next) => {
   try {
@@ -86,7 +85,7 @@ export const requestPayout = async (req, res, next) => {
       return next(
         new AppError(
           `Minimum payout threshold is ${user.minimumPayoutThreshold} ${
-            user.currency || "USD"
+            user.currency || "TKNS"
           }. Your pending payout is ${user.pendingPayout}`,
           400
         )
@@ -95,7 +94,7 @@ export const requestPayout = async (req, res, next) => {
 
     // Check if there's already a pending payout
     const existingPayout = await Payout.findOne({
-      creator: userId,
+      craftsman: userId,
       status: { $in: ["pending", "processing"] },
     });
 
@@ -107,7 +106,7 @@ export const requestPayout = async (req, res, next) => {
 
     // Get all pending transactions
     const pendingTransactions = await Transaction.find({
-      creator: userId,
+      craftsman: userId,
       status: "completed",
       payoutStatus: "pending",
     });
@@ -118,12 +117,11 @@ export const requestPayout = async (req, res, next) => {
 
     // Create payout
     const payout = await Payout.create({
-      creator: userId,
+      craftsman: userId,
       amount: user.pendingPayout,
-      currency: "USD",
+      currency: "TKNS",
       transactions: pendingTransactions.map((t) => t._id),
-      payoutMethod: user.payoutMethod || "payoneer",
-      payoneerEmail: user.payoneerEmail,
+      payoutMethod: user.payoutMethod || "internal_wallet",
       bankDetails: user.bankDetails,
       status: "pending",
       minimumThreshold: user.minimumPayoutThreshold,
@@ -154,12 +152,12 @@ export const requestPayout = async (req, res, next) => {
 };
 
 /**
- * Update payout settings (creator)
+ * Update payout settings (craftsman)
  */
 export const updatePayoutSettings = async (req, res, next) => {
   try {
     const userId = req.user?._id || req.user?.id;
-    const { payoneerEmail, payoutMethod, bankDetails, minimumPayoutThreshold } =
+    const { payoutMethod, bankDetails, minimumPayoutThreshold } =
       req.body;
 
     if (!userId) {
@@ -173,10 +171,6 @@ export const updatePayoutSettings = async (req, res, next) => {
     }
 
     // Update payout settings
-    if (payoneerEmail !== undefined) {
-      user.payoneerEmail = payoneerEmail;
-    }
-
     if (payoutMethod !== undefined) {
       user.payoutMethod = payoutMethod;
     }
@@ -189,8 +183,8 @@ export const updatePayoutSettings = async (req, res, next) => {
       user.minimumPayoutThreshold = minimumPayoutThreshold;
     }
 
-    // Enable payout if email is provided
-    if (payoneerEmail && payoneerEmail.trim() !== "") {
+    // Auto-enable payout if internal wallet is set (or other criteria)
+    if (payoutMethod === "internal_wallet") {
       user.payoutEnabled = true;
     }
 
@@ -200,7 +194,6 @@ export const updatePayoutSettings = async (req, res, next) => {
       success: true,
       message: "Payout settings updated successfully",
       settings: {
-        payoneerEmail: user.payoneerEmail,
         payoutMethod: user.payoutMethod,
         payoutEnabled: user.payoutEnabled,
         minimumPayoutThreshold: user.minimumPayoutThreshold,
@@ -232,7 +225,7 @@ export const getAllPayouts = async (req, res, next) => {
     }
 
     const payouts = await Payout.find(query)
-      .populate("creator", "name email payoneerEmail")
+      .populate("craftsman", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -265,7 +258,7 @@ export const processPayout = async (req, res, next) => {
     const { payoutId } = req.params;
     const { externalReference, notes } = req.body;
 
-    const payout = await Payout.findById(payoutId).populate("creator");
+    const payout = await Payout.findById(payoutId).populate("craftsman");
 
     if (!payout) {
       return next(new AppError("Payout not found", 404));
@@ -290,15 +283,15 @@ export const processPayout = async (req, res, next) => {
       { payoutStatus: "paid" }
     );
 
-    // Update creator's total paid out and reset pending
-    const creator = await User.findById(payout.creator._id);
-    if (creator) {
-      creator.totalPaidOut = (creator.totalPaidOut || 0) + payout.amount;
-      creator.pendingPayout = Math.max(
+    // Update craftsman's total paid out and reset pending
+    const craftsman = await User.findById(payout.craftsman._id);
+    if (craftsman) {
+      craftsman.totalPaidOut = (craftsman.totalPaidOut || 0) + payout.amount;
+      craftsman.pendingPayout = Math.max(
         0,
-        (creator.pendingPayout || 0) - payout.amount
+        (craftsman.pendingPayout || 0) - payout.amount
       );
-      await creator.save();
+      await craftsman.save();
     }
 
     res.status(200).json({
@@ -356,3 +349,4 @@ export const cancelPayout = async (req, res, next) => {
     next(new AppError(error.message || "Failed to cancel payout", 500));
   }
 };
+

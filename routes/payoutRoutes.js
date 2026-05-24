@@ -11,7 +11,7 @@ import { verifyAccessToken } from "../middlewares/verifyAccessToken.js";
 
 const router = express.Router();
 
-// Creator routes
+// Craftsman routes
 router.get("/summary", verifyAccessToken, getPayoutSummary);
 router.post("/request", verifyAccessToken, requestPayout);
 router.put("/settings", verifyAccessToken, updatePayoutSettings);
@@ -22,3 +22,4 @@ router.post("/:payoutId/process", verifyAccessToken, processPayout);
 router.post("/:payoutId/cancel", verifyAccessToken, cancelPayout);
 
 export default router;
+

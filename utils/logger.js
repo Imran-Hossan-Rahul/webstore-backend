@@ -52,9 +52,15 @@ function writeLog(level, message) {
 }
 
 const logger = {
-  info: (msg) => writeLog("info", msg),
-  warn: (msg) => writeLog("warn", msg),
-  error: (msg) => writeLog("error", msg),
+  info: (...args) => writeLog("info", args.map(arg => 
+    arg instanceof Error ? arg.stack : (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg)
+  ).join(' ')),
+  warn: (...args) => writeLog("warn", args.map(arg => 
+    arg instanceof Error ? arg.stack : (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg)
+  ).join(' ')),
+  error: (...args) => writeLog("error", args.map(arg => 
+    arg instanceof Error ? arg.stack : (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg)
+  ).join(' ')),
 };
 
 export default logger;

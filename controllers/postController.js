@@ -1,10 +1,10 @@
 import Post from "../models/Post.model.js";
 import logger from "../utils/logger.js";
 import { postLikeQueue } from "../queues/postLikeQueue.js";
-import { postImageQueue } from "../queues/postImageQueue.js";
-import { projectResourceQueue } from "../queues/projectResourceQueue.js";
-import { Queue } from "bullmq";
-import IORedis from "ioredis";
+import { devlogImageQueue } from "../queues/devlogImageQueue.js";
+import { devlogResourceQueue } from "../queues/devlogResourceQueue.js";
+import { quickPostQueue } from "../queues/quickPostQueue.js";
+import redis from "../config/redis.js";
 
 /**
  * @desc    Update an existing post
@@ -14,7 +14,7 @@ import IORedis from "ioredis";
 export const updatePost = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, projectStats, category } = req.body;
+    const { content, devlogStats, category, images, title, tags, updateReason, seoTitle, seoDescription, focusKeywords } = req.body;
     const userId = req.user._id;
 
     const post = await Post.findById(id);
@@ -28,26 +28,101 @@ export const updatePost = async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized to update this post" });
     }
 
-    // Update fields
-    if (content) post.content = content;
-    if (category) post.category = category;
+    // 🚀 Activity Logging Logic
+    const activityLog = post.devlogStats?.activityLog || [];
+    const newLogs = [];
+
+    // Track scalar changes
+    if (title !== undefined && title !== post.title) {
+        newLogs.push({ type: 'update', action: 'Title Changed', details: `Project title updated to: "${title}"`, date: new Date() });
+        post.title = title;
+    }
+    if (category !== undefined && category !== post.category) {
+        newLogs.push({ type: 'update', action: 'Category Changed', details: `Shifted from ${post.category} to ${category}`, date: new Date() });
+        post.category = category;
+    }
+    if (content !== undefined && content !== post.content) {
+        newLogs.push({ type: 'update', action: 'Description Updated', details: 'Project documentation/description was refined', date: new Date() });
+        post.content = content;
+    }
+    if (images !== undefined && JSON.stringify(images) !== JSON.stringify(post.images)) {
+        newLogs.push({ type: 'update', action: 'Visuals Updated', details: 'Project showcase images were modified', date: new Date() });
+        post.images = images;
+    }
+    if (tags !== undefined) {
+        post.tags = tags;
+    }
     
-    // Deep merge or replace projectStats? Replace is safer to handle deletions, but let's be careful.
-    // The frontend should send the COMPLETE object.
-    if (projectStats) {
-        // Ensure legacy data is preserved if not sent? No, assume full overwrite for edit form.
-        post.projectStats = { ...post.projectStats, ...projectStats }; 
+    // Update SEO fields
+    if (seoTitle !== undefined) post.seoTitle = seoTitle;
+    if (seoDescription !== undefined) post.seoDescription = seoDescription;
+    if (focusKeywords !== undefined) post.focusKeywords = focusKeywords;
+
+    // Accumulate updateReason history
+    if (updateReason && updateReason.trim()) {
+        const existingUR = post.devlogStats?.updateReasons || [];
+        // Add to standard updateReasons
+        const newUR = { reason: updateReason.trim(), updatedAt: new Date() };
+        
+        // Also add to Activity Log for the unified timeline
+        newLogs.push({ 
+            type: 'update', 
+            action: 'Manual Update', 
+            details: updateReason.trim(), 
+            date: new Date() 
+        });
+
+        // We'll update the whole devlogStats below
+    }
+
+    // Deep merge devlogStats and track internal changes
+    if (devlogStats) {
+        const existingStats = post.devlogStats ? (typeof post.devlogStats.toObject === 'function' ? post.devlogStats.toObject() : post.devlogStats) : {};
+        
+        // Track status/phase changes
+        if (devlogStats.status && devlogStats.status !== existingStats.status) {
+            newLogs.push({ type: 'status', action: 'Status Changed', details: `Project status moved to ${devlogStats.status}`, date: new Date() });
+        }
+        if (devlogStats.phase && devlogStats.phase !== existingStats.phase) {
+            newLogs.push({ type: 'status', action: 'Phase Shift', details: `Project entered ${devlogStats.phase} phase`, date: new Date() });
+        }
+
+        // Track timeline extensions
+        if (devlogStats.extensions && devlogStats.extensions.length > (existingStats.extensions?.length || 0)) {
+            const latestExt = devlogStats.extensions[devlogStats.extensions.length - 1];
+            newLogs.push({ 
+                type: 'extension', 
+                action: 'Timeline Extended', 
+                details: `Deadline extended. Rationale: ${latestExt.reason}`, 
+                date: new Date() 
+            });
+        }
+
+        // Merge logic
+        post.devlogStats = {
+            ...existingStats,
+            ...devlogStats,
+            updateReasons: updateReason ? [...(existingStats.updateReasons || []), { reason: updateReason.trim(), updatedAt: new Date() }] : (existingStats.updateReasons || []),
+            activityLog: [...activityLog, ...newLogs]
+        }; 
         post.isEdited = true;
+    } else if (newLogs.length > 0) {
+        // If only top-level fields changed
+        post.devlogStats = {
+            ...(post.devlogStats || {}),
+            activityLog: [...activityLog, ...newLogs]
+        };
     }
 
     await post.save();
+
     
     // Re-populate to return full object
-    // Updated to use creator fallback
+    // Updated to use craftsman fallback
     await post.populate({
         path: "user",
-        select: "name profilePicture email creatorProfileId",
-        populate: { path: "creatorProfileId", select: "profilePicture" }
+        select: "name profilePicture email craftsmanProfileId",
+        populate: { path: "craftsmanProfileId", select: "profilePicture" }
     });
 
     // Transform for response
@@ -56,7 +131,7 @@ export const updatePost = async (req, res) => {
         _id: post.user._id,
         name: post.user.name,
         username: post.user.username || (post.user.email ? post.user.email.split('@')[0] : 'user'),
-        avatar: post.user.profilePicture || post.user.creatorProfileId?.profilePicture
+        avatar: post.user.profilePicture || post.user.craftsmanProfileId?.profilePicture
     };
 
     res.status(200).json({
@@ -94,14 +169,11 @@ export const createQuickPost = async (req, res) => {
 
     // Queue media uploads if files exist
     if (files && files.length > 0) {
-      const connection = new IORedis(process.env.REDIS_URL || "redis://127.0.0.1:6379", { maxRetriesPerRequest: null });
-      const mediaQueue = new Queue("quick-post-media", { connection });
-
       for (const file of files) {
         const mediaType = file.mimetype.startsWith("image/") ? "image" : 
                          file.mimetype.startsWith("video/") ? "video" : "file";
         
-        await mediaQueue.add("upload-quick-post-media", {
+        await quickPostQueue.add("upload-quick-post-media", {
           filePath: file.path,
           postId: newPost._id.toString(),
           mediaType,
@@ -112,8 +184,8 @@ export const createQuickPost = async (req, res) => {
 
     await newPost.populate({
       path: "user",
-      select: "name profilePicture email creatorProfileId",
-      populate: { path: "creatorProfileId", select: "profilePicture" }
+      select: "name profilePicture email craftsmanProfileId",
+      populate: { path: "craftsmanProfileId", select: "profilePicture" }
     });
 
     const postObj = newPost.toObject();
@@ -121,7 +193,7 @@ export const createQuickPost = async (req, res) => {
       _id: newPost.user._id,
       name: newPost.user.name,
       username: newPost.user.username || (newPost.user.email ? newPost.user.email.split('@')[0] : 'user'),
-      avatar: newPost.user.profilePicture || newPost.user.creatorProfileId?.profilePicture
+      avatar: newPost.user.profilePicture || newPost.user.craftsmanProfileId?.profilePicture
     };
 
     res.status(201).json({
@@ -142,13 +214,13 @@ export const createQuickPost = async (req, res) => {
  */
 export const createPost = async (req, res) => {
   try {
-    const { content, images, postType, category, projectStats } = req.body;
+    const { title, content, images, postType, category, tags, devlogStats, seoTitle, seoDescription, focusKeywords } = req.body;
     const userId = req.user._id;
 
     // Check permissions
-    if (!req.user.hasCreatorAccount) {
-        if (postType === 'project' || (projectStats && Object.keys(projectStats).length > 0)) {
-             return res.status(403).json({ success: false, message: "Only creators can create projects." });
+    if (!req.user.hasCraftsmanAccount) {
+        if (postType === 'devlog' || (devlogStats && Object.keys(devlogStats).length > 0)) {
+             return res.status(403).json({ success: false, message: "Only craftsmen can create devlogs." });
         }
     }
 
@@ -156,14 +228,32 @@ export const createPost = async (req, res) => {
        return res.status(400).json({ success: false, message: "Post must have content or images" });
     }
 
+    // Auto-generate slug from title for SEO-friendly URLs
+    const generateSlug = (str) => str?.toString().toLowerCase()
+      .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').slice(0, 80);
+
     // Create Post immediately
     const newPost = await Post.create({
       user: userId,
+      title,
+      slug: generateSlug(title),
       content,
-      images: [], // Images added via worker if uploaded
+      images: [], // Images added via craftsman if uploaded
       postType,
       category,
-      projectStats
+      tags,
+      seoTitle,
+      seoDescription,
+      focusKeywords,
+      devlogStats: {
+          ...devlogStats,
+          activityLog: [{
+              type: 'create',
+              action: 'Project Initiated',
+              details: 'The devlog was officially published and the project journey began.',
+              date: new Date()
+          }]
+      }
     });
 
     if (images && images.length > 0) {
@@ -171,12 +261,12 @@ export const createPost = async (req, res) => {
         await newPost.save();
     }
 
-    // Process Project Resources (if any)
-    if (projectStats && projectStats.resources && Array.isArray(projectStats.resources)) {
-        for (const res of projectStats.resources) {
+    // Process Devlog Resources (if any)
+    if (devlogStats && devlogStats.resources && Array.isArray(devlogStats.resources)) {
+        for (const res of devlogStats.resources) {
             if (res.tempPath) {
                 // It's a pending upload
-                await projectResourceQueue.add("project-resource-upload", {
+                await devlogResourceQueue.add("devlog-resource-upload", {
                     filePath: res.tempPath,
                     postId: newPost._id,
                     userId: userId,
@@ -187,11 +277,11 @@ export const createPost = async (req, res) => {
     }
 
     // Populate user details for immediate frontend display
-    // Updated to use creator callback
+    // Updated to use craftsman callback
     await newPost.populate({
         path: "user",
-        select: "name profilePicture email creatorProfileId",
-        populate: { path: "creatorProfileId", select: "profilePicture" }
+        select: "name profilePicture email craftsmanProfileId",
+        populate: { path: "craftsmanProfileId", select: "profilePicture" }
     });
 
     // Transform for response
@@ -200,12 +290,13 @@ export const createPost = async (req, res) => {
         _id: newPost.user._id,
         name: newPost.user.name,
         username: newPost.user.username || (newPost.user.email ? newPost.user.email.split('@')[0] : 'user'),
-        avatar: newPost.user.profilePicture || newPost.user.creatorProfileId?.profilePicture
+        avatar: newPost.user.profilePicture || newPost.user.craftsmanProfileId?.profilePicture
     };
 
-    // Award XP for creating a post
+    // Award Rewards for creating a post/devlog (Atomic)
     const GamificationService = (await import("../services/GamificationService.js")).default;
-    await GamificationService.awardXP(userId, 'CREATE_POST');
+    const rewardAction = postType === 'devlog' ? 'CREATE_DEVLOG' : 'CREATE_POST';
+    await GamificationService.awardRewards(userId, rewardAction);
 
     res.status(201).json({
       success: true,
@@ -227,20 +318,38 @@ export const getPosts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const { type, userId } = req.query;
     const skip = (page - 1) * limit;
 
-    const posts = await Post.find({ status: "active" })
+    const query = {};
+    if (type) {
+        query.postType = type;
+    }
+    
+    if (userId) {
+        query.user = userId;
+        // If it's NOT the owner requesting, only show active posts
+        const isOwner = req.user && (req.user._id.toString() === userId.toString());
+        if (!isOwner) {
+            query.status = "active";
+        }
+    } else {
+        // Default view: only active
+        query.status = "active";
+    }
+
+    const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate({
           path: "user",
-          select: "name profilePicture email creatorProfileId",
-          populate: { path: "creatorProfileId", select: "profilePicture" }
+          select: "name profilePicture email craftsmanProfileId",
+          populate: { path: "craftsmanProfileId", select: "profilePicture" }
       })
       .lean();
 
-    const total = await Post.countDocuments({ status: "active" });
+    const total = await Post.countDocuments(query);
 
     // Inject isFavorited status
     // Optimization: Fetch only needed part of user
@@ -263,7 +372,7 @@ export const getPosts = async (req, res) => {
             _id: post.user._id,
             name: post.user.name,
             username: post.user.username || (post.user.email ? post.user.email.split('@')[0] : 'user'),
-            avatar: post.user.profilePicture || post.user.creatorProfileId?.profilePicture
+            avatar: post.user.profilePicture || post.user.craftsmanProfileId?.profilePicture
         } : null;
 
         return {
@@ -299,8 +408,8 @@ export const getPostById = async (req, res) => {
     const post = await Post.findById(id)
       .populate({
           path: "user",
-          select: "name profilePicture email creatorProfileId",
-          populate: { path: "creatorProfileId", select: "profilePicture" }
+          select: "name profilePicture email craftsmanProfileId",
+          populate: { path: "craftsmanProfileId", select: "profilePicture" }
       })
       .lean();
 
@@ -315,7 +424,8 @@ export const getPostById = async (req, res) => {
              const User = (await import("../models/User.model.js")).default;
              const user = await User.findById(req.user._id).select('favorites');
              if (user && user.favorites) {
-                 isFavorited = user.favorites.map(id => id.toString()).includes(post._id.toString());
+                 const favoriteSet = new Set(user.favorites.map(id => id.toString()));
+                 isFavorited = favoriteSet.has(post._id.toString());
              }
          } catch(e) { console.error("User fetch error", e); }
     }
@@ -325,7 +435,7 @@ export const getPostById = async (req, res) => {
         _id: post.user._id,
         name: post.user.name,
         username: post.user.username || (post.user.email ? post.user.email.split('@')[0] : 'user'),
-        avatar: post.user.profilePicture || post.user.creatorProfileId?.profilePicture
+        avatar: post.user.profilePicture || post.user.craftsmanProfileId?.profilePicture
     } : null;
 
     res.status(200).json({
@@ -349,16 +459,19 @@ export const likePost = async (req, res) => {
     const { id } = req.params;
     const userId = req.user._id;
 
-    const post = await Post.findById(id).select('_id likedBy likes');
+    // 🚀 FIX: O(log n) DB check via index instead of O(n) .some() over likedBy array
+    // No need to load the likedBy array at all
+    const post = await Post.findById(id).select('_id likes').lean();
     if (!post) {
       return res.status(404).json({ success: false, message: "Post not found" });
     }
 
-    const isLiked = post.likedBy.includes(userId);
+    // O(log n): MongoDB array index check — no JS iteration
+    const isLiked = await Post.exists({ _id: id, likedBy: userId });
     const action = isLiked ? "unlike" : "like";
 
-    // Optimistic Response
-    const newLikes = isLiked ? Math.max(0, post.likes - 1) : post.likes + 1;
+    // Optimistic count (post.likes is a number here)
+    const newLikes = isLiked ? Math.max(0, (post.likes || 0) - 1) : (post.likes || 0) + 1;
     
     // Add to Queue
     await postLikeQueue.add("post-like", {
@@ -379,16 +492,9 @@ export const likePost = async (req, res) => {
 
   } catch (error) {
     logger.error("Like Post Error:", error);
-    res.status(500).json({ success: false, message: `Failed to toggle like: ${error.message}` });
+    res.status(500).json({ success: false, message: "Failed to toggle like" });
   }
 };
-
-/**
- * @desc    Increment post views
- * @route   POST /api/v1/posts/:id/view
- * @access  Public
- */
-const redis = new IORedis(process.env.REDIS_URL || "redis://127.0.0.1:6379", { maxRetriesPerRequest: null });
 
 /**
  * @desc    Increment post views (buffered via Redis)
@@ -405,7 +511,7 @@ export const viewPost = async (req, res) => {
 
     // 1. Check if post exists (Optional: Cache existence check)
     // For speed, we might skip DB check if we trust ID, but let's do a quick check or cache it.
-    // For now, assume valid ID to save DB call, worker will fail if invalid.
+    // For now, assume valid ID to save DB call, craftsman will fail if invalid.
     
     // 2. Cooldown check
     const userIdentifier = userId || ip;
@@ -428,7 +534,7 @@ export const viewPost = async (req, res) => {
         timestamp: new Date()
     });
 
-    await redis.set(redisKey, JSON.stringify(viewData), 'EX', 3600); // 1 hr TTL in case worker dies
+    await redis.set(redisKey, JSON.stringify(viewData), 'EX', 3600); // 1 hr TTL in case craftsman dies
 
     // 4. Set Cooldown (e.g. 5 minutes)
     await redis.set(cooldownKey, "1", "EX", 300);
@@ -438,7 +544,7 @@ export const viewPost = async (req, res) => {
 
   } catch (error) {
     console.error("View inc error", error);
-    res.status(200).json({ success: true }); // Fail silently to client
+    res.status(200).json({ success: true }); // Fail silently to patron
   }
 };
 
@@ -486,7 +592,7 @@ export const markPostImpression = async (req, res) => {
         }
 
         // Buffer impressions to Redis
-        // Worker will aggregate and flush
+        // Craftsman will aggregate and flush
         const pipeline = redis.pipeline();
         postIds.forEach(id => {
             pipeline.incr(`impressions:delta:post:${id}`);
@@ -503,26 +609,42 @@ export const markPostImpression = async (req, res) => {
 
 
 /**
- * @desc    Get current user's posts for creator dashboard
+ * @desc    Get current user's posts for craftsman dashboard
  * @route   GET /api/v1/posts/my-posts
  * @access  Private
  */
 export const getMyPosts = async (req, res) => {
   try {
     const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
     
-    // Fetch all NON-PROJECT posts by user (excluding project posts)
-    const posts = await Post.find({ 
+    // Fetch all NON-DEVLOG posts by user (excluding devlog posts)
+    const matchCriteria = { 
       user: userId, 
-      status: { $ne: 'deleted' },
-      postType: { $ne: 'project' } // Exclude project posts
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+      status: { $nin: ['deleted', 'Deleted'] },
+      postType: { $ne: 'devlog' } // Exclude devlog posts
+    };
+
+    const [posts, total] = await Promise.all([
+      Post.find(matchCriteria)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Post.countDocuments(matchCriteria)
+    ]);
 
     res.status(200).json({
       success: true,
-      data: posts
+      data: posts,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+        hasMore: skip + posts.length < total
+      }
     });
 
   } catch (error) {
@@ -532,31 +654,47 @@ export const getMyPosts = async (req, res) => {
 };
 
 /**
- * @desc    Get current user's PROJECT posts for creator dashboard
- * @route   GET /api/v1/posts/my-project-posts
+ * @desc    Get current user's DEVLOG posts for craftsman dashboard
+ * @route   GET /api/v1/posts/my-devlog-posts
  * @access  Private
  */
-export const getMyProjectPosts = async (req, res) => {
+export const getMyDevlogPosts = async (req, res) => {
   try {
     const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
     
-    // Fetch only PROJECT posts by user
-    const posts = await Post.find({ 
+    // Fetch only DEVLOG posts by user
+    const matchCriteria = { 
       user: userId, 
       status: { $ne: 'deleted' },
-      postType: 'project'
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+      postType: 'devlog'
+    };
+
+    const [posts, total] = await Promise.all([
+      Post.find(matchCriteria)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Post.countDocuments(matchCriteria)
+    ]);
 
     res.status(200).json({
       success: true,
-      data: posts
+      data: posts,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+        hasMore: skip + posts.length < total
+      }
     });
 
   } catch (error) {
-    logger.error("Get My Project Posts Error:", error);
-    res.status(500).json({ success: false, message: "Failed to fetch your project posts" });
+    logger.error("Get My Devlog Posts Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch your devlog posts" });
   }
 };
 
@@ -567,121 +705,127 @@ export const getMyProjectPosts = async (req, res) => {
  */
 export const getPostAnalytics = async (req, res) => {
   try {
-    // Dynamic import to avoid circular dep if needed, or just standard import above
     const { id } = req.params;
     const { range = '7d' } = req.query;
     const userId = req.user._id || req.user.id;
 
-    const post = await Post.findById(id)
-       .populate({
-           path: 'viewHistory.viewers.userId',
-           select: 'dateOfBirth'
-       });
-
-    if (!post) return res.status(404).json({ message: "Post not found" });
-
-    // Authorization
-    if (post.user.toString() !== userId.toString()) {
+    // 🚀 FIX: Lightweight auth check — no full populate needed
+    const postMeta = await Post.findById(id)
+      .select('_id user views likes commentsCount sharesCount impressions')
+      .lean();
+    if (!postMeta) return res.status(404).json({ message: "Post not found" });
+    if (postMeta.user.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // Determine Time Range
+    // Time range config
     const now = new Date();
-    let startTime = new Date();
-    let interval = 'day';
-
+    const startTime = new Date();
+    let dateFormat, interval;
     switch(range) {
-        case '1h': startTime.setHours(startTime.getHours() - 1); interval = 'minute'; break;
-        case '24h': startTime.setHours(startTime.getHours() - 24); interval = 'hour'; break;
-        case '7d': startTime.setDate(startTime.getDate() - 7); interval = 'day'; break;
-        case '30d': startTime.setDate(startTime.getDate() - 30); interval = 'day'; break;
-        default: startTime.setDate(startTime.getDate() - 7); interval = 'day';
+      case '1h':  startTime.setHours(startTime.getHours() - 1); dateFormat = "%Y-%m-%dT%H:%M"; interval = 'minute'; break;
+      case '24h': startTime.setHours(startTime.getHours() - 24); dateFormat = "%Y-%m-%dT%H:00"; interval = 'hour'; break;
+      case '30d': startTime.setDate(startTime.getDate() - 30); dateFormat = "%Y-%m-%d"; interval = 'day'; break;
+      default:    startTime.setDate(startTime.getDate() - 7);   dateFormat = "%Y-%m-%d"; interval = 'day';
     }
 
-    // Process Histories
-    const viewTimestamps = [];
-    post.viewHistory?.forEach(history => {
-        history.viewers?.forEach(viewer => {
-            if (new Date(viewer.timestamp) >= startTime) {
-                viewTimestamps.push(new Date(viewer.timestamp));
-            }
-        });
-    });
+    // 🚀 ALL computation pushed to MongoDB — O(n) single pass per aggregation
+    const [viewAgg, likeAgg, shareAgg, impressionAgg, countryAgg] = await Promise.all([
 
-    const likesInPeriod = post.likeHistory?.filter(l => new Date(l.timestamp) >= startTime) || [];
-    const sharesInPeriod = post.shareHistory?.filter(s => new Date(s.timestamp) >= startTime) || [];
-    const impressionsInPeriod = post.impressionHistory?.filter(i => new Date(i.date) >= startTime) || [];
+      // 1. Views trend
+      Post.aggregate([
+        { $match: { _id: postMeta._id } },
+        { $unwind: "$viewHistory" },
+        { $unwind: "$viewHistory.viewers" },
+        { $match: { "viewHistory.viewers.timestamp": { $gte: startTime } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: dateFormat, date: "$viewHistory.viewers.timestamp" } },
+            views: { $sum: 1 }
+          }
+        },
+        { $sort: { "_id": 1 } }
+      ]),
 
-    // Trend Map
-    const trendMap = new Map();
-    let current = new Date(startTime);
-    if (interval === 'day') current.setHours(0,0,0,0);
-    if (interval === 'hour') current.setMinutes(0,0,0);
-    if (interval === 'minute') current.setSeconds(0,0);
-
-    while (current <= now) {
-        trendMap.set(current.toISOString(), { views: 0, likes: 0, shares: 0, impressions: 0 });
-        if (interval === 'minute') current.setMinutes(current.getMinutes() + 1);
-        else if (interval === 'hour') current.setHours(current.getHours() + 1);
-        else current.setDate(current.getDate() + 1);
-    }
-
-    // Populate Trend Map
-    const addToMap = (date, field, val=1) => {
-        const key = new Date(date);
-        if (interval === 'day') key.setHours(0,0,0,0);
-        else if (interval === 'hour') key.setMinutes(0,0,0);
-        else if (interval === 'minute') key.setSeconds(0,0);
-        
-        const keyStr = key.toISOString();
-        if (trendMap.has(keyStr)) {
-            trendMap.get(keyStr)[field] += val;
+      // 2. Likes trend
+      Post.aggregate([
+        { $match: { _id: postMeta._id } },
+        { $unwind: "$likeHistory" },
+        { $match: { "likeHistory.timestamp": { $gte: startTime } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: dateFormat, date: "$likeHistory.timestamp" } },
+            likes: { $sum: 1 }
+          }
         }
-    };
+      ]),
 
-    viewTimestamps.forEach(d => addToMap(d, 'views'));
-    likesInPeriod.forEach(d => addToMap(d.timestamp, 'likes'));
-    sharesInPeriod.forEach(d => addToMap(d.timestamp, 'shares'));
-    impressionsInPeriod.forEach(d => addToMap(d.date, 'impressions', d.count));
+      // 3. Shares trend
+      Post.aggregate([
+        { $match: { _id: postMeta._id } },
+        { $unwind: "$shareHistory" },
+        { $match: { "shareHistory.timestamp": { $gte: startTime } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$shareHistory.timestamp" } },
+            shares: { $sum: 1 }
+          }
+        }
+      ]),
 
-    const mergedTrend = Array.from(trendMap, ([date, counts]) => ({ 
-        date, ...counts
-    })).sort((a, b) => new Date(a.date) - new Date(b.date));
+      // 4. Impressions trend
+      Post.aggregate([
+        { $match: { _id: postMeta._id } },
+        { $unwind: "$impressionHistory" },
+        { $match: { "impressionHistory.date": { $gte: startTime } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$impressionHistory.date" } },
+            impressions: { $sum: "$impressionHistory.count" }
+          }
+        }
+      ]),
 
-    // Demographics
-    const countryStats = {};
-    const ageGroups = { '18-24': 0, '25-34': 0, '35-44': 0, '45-54': 0, '55+': 0, 'Unknown': 0 };
+      // 5. Country distribution
+      Post.aggregate([
+        { $match: { _id: postMeta._id } },
+        { $unwind: "$viewHistory" },
+        { $unwind: "$viewHistory.viewers" },
+        { $match: { "viewHistory.viewers.timestamp": { $gte: startTime } } },
+        {
+          $group: {
+            _id: { $ifNull: ["$viewHistory.viewers.country", "Unknown"] },
+            value: { $sum: 1 }
+          }
+        },
+        { $sort: { value: -1 } },
+        { $limit: 10 },
+        { $project: { name: "$_id", value: 1, _id: 0 } }
+      ])
+    ]);
 
-     post.viewHistory?.forEach(history => {
-        history.viewers?.forEach(viewer => {
-            if (new Date(viewer.timestamp) >= startTime) {
-                const country = viewer.country || "Unknown";
-                countryStats[country] = (countryStats[country] || 0) + 1;
+    // Merge trend buckets
+    const buckets = new Map();
+    const addBucket = (key) => { if (!buckets.has(key)) buckets.set(key, { date: key, views: 0, likes: 0, shares: 0, impressions: 0 }); };
 
-                if (viewer.userId && viewer.userId.dateOfBirth) {
-                    const dob = new Date(viewer.userId.dateOfBirth);
-                    const age = Math.abs(new Date(Date.now() - dob.getTime()).getUTCFullYear() - 1970);
-                    if (age >= 18 && age <= 24) ageGroups['18-24']++;
-                    else if (age >= 25 && age <= 34) ageGroups['25-34']++;
-                    else if (age >= 35 && age <= 44) ageGroups['35-44']++;
-                    else if (age >= 45 && age <= 54) ageGroups['45-54']++;
-                    else if (age >= 55) ageGroups['55+']++;
-                    else ageGroups['Unknown']++;
-                } else ageGroups['Unknown']++;
-            }
-        });
-    });
+    viewAgg.forEach(r => { addBucket(r._id); buckets.get(r._id).views = r.views; });
+    likeAgg.forEach(r => { addBucket(r._id); buckets.get(r._id).likes = r.likes; });
+    shareAgg.forEach(r => { addBucket(r._id); buckets.get(r._id).shares = r.shares; });
+    impressionAgg.forEach(r => { addBucket(r._id); buckets.get(r._id).impressions = r.impressions; });
+
+    const viewsTrend = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const periodViews = viewAgg.reduce((s, r) => s + r.views, 0);
 
     res.status(200).json({
-        totalViews: post.views || 0,
-        totalLikes: post.likes || 0,
-        totalComments: post.commentsCount || 0,
-        totalShares: post.sharesCount || 0,
-        totalImpressions: post.impressions || 0,
-        periodViews: viewTimestamps.length,
-        viewsTrend: mergedTrend,
-        countryDistribution: Object.entries(countryStats).map(([n, v]) => ({ name: n, value: v })).sort((a,b) => b.value - a.value),
-        ageDistribution: Object.entries(ageGroups).map(([n, v]) => ({ name: n, value: v }))
+      totalViews: postMeta.views || 0,
+      totalLikes: postMeta.likes || 0,
+      totalComments: postMeta.commentsCount || 0,
+      totalShares: postMeta.sharesCount || 0,
+      totalImpressions: postMeta.impressions || 0,
+      periodViews,
+      viewsTrend,
+      countryDistribution: countryAgg,
+      ageDistribution: [] // lightweight exclusion
     });
 
   } catch (error) {
@@ -689,3 +833,4 @@ export const getPostAnalytics = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch analytics" });
   }
 };
+

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import { MONGODB_CONNECTION_STRING } from "../config/index.js";
 
 mongoose.connect(MONGODB_CONNECTION_STRING)
@@ -8,20 +8,20 @@ mongoose.connect(MONGODB_CONNECTION_STRING)
 
 async function checkViewHistory() {
   try {
-    const template = await ButtonTemplate.findOne().select('title viewsCount viewHistory');
+    const artifact = await Artifact.findOne().select('title viewsCount viewHistory');
     
-    if (!template) {
-      console.log("❌ No templates found");
+    if (!artifact) {
+      console.log("❌ No artifacts found");
       process.exit(1);
     }
 
-    console.log(`\n📋 Template: ${template.title}`);
-    console.log(`📊 ViewsCount: ${template.viewsCount}`);
-    console.log(`📅 ViewHistory entries: ${template.viewHistory?.length || 0}`);
+    console.log(`\n📋 Artifact: ${artifact.title}`);
+    console.log(`📊 ViewsCount: ${artifact.viewsCount}`);
+    console.log(`📅 ViewHistory entries: ${artifact.viewHistory?.length || 0}`);
     
-    if (template.viewHistory && template.viewHistory.length > 0) {
+    if (artifact.viewHistory && artifact.viewHistory.length > 0) {
       console.log(`\n📈 ViewHistory data:`);
-      template.viewHistory.forEach(entry => {
+      artifact.viewHistory.forEach(entry => {
         console.log(`  ${entry.date.toISOString().split('T')[0]}: ${entry.count} views`);
       });
     } else {
@@ -36,3 +36,5 @@ async function checkViewHistory() {
 }
 
 checkViewHistory();
+
+

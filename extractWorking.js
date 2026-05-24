@@ -73,7 +73,7 @@ function findIndexHtml(dir) {
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
 // Upload endpoint
-app.post("/api/v1/template/upload", upload.single("template"), (req, res) => {
+app.post("/api/v1/artifact/upload", upload.single("artifact"), (req, res) => {
   if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
   const zipPath = req.file.path;
@@ -93,7 +93,7 @@ app.post("/api/v1/template/upload", upload.single("template"), (req, res) => {
     }
 
     res.json({
-      message: "Template uploaded and extracted successfully",
+      message: "Artifact uploaded and extracted successfully",
       extractedFolder: extractFolder,
       indexFile: indexPath,
     });
@@ -109,3 +109,4 @@ app.post("/api/v1/template/upload", upload.single("template"), (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+

@@ -3,20 +3,20 @@ import path from 'path';
 /**
  * Fast File Validator
  * Only performs instant checks without deep scanning
- * Deep scanning happens in background worker
+ * Deep scanning happens in background craftsman
  */
 
 // Allowed file extensions
 const ALLOWED_PREVIEW_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm'];
-const ALLOWED_PROJECT_EXTENSIONS = ['.zip', '.json', '.html', '.js', '.css'];
+const ALLOWED_DEVLOG_EXTENSIONS = ['.zip', '.json', '.html', '.js', '.css'];
 
 // Max file sizes (in bytes)
 const MAX_PREVIEW_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PROJECT_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_DEVLOG_SIZE = 50 * 1024 * 1024; // 50MB
 
 /**
  * Fast validation - Only checks size, extension, mimetype
- * NO deep scanning (that happens in worker)
+ * NO deep scanning (that happens in craftsman)
  */
 export function fastValidatePreviewFile(file) {
     const errors = [];
@@ -51,25 +51,25 @@ export function fastValidatePreviewFile(file) {
 }
 
 /**
- * Fast validation for project file
+ * Fast validation for devlog file
  */
-export function fastValidateProjectFile(file) {
+export function fastValidateDevlogFile(file) {
     const errors = [];
     
     if (!file) {
-        errors.push('Project file is required');
+        errors.push('Devlog file is required');
         return { valid: false, errors };
     }
 
     // Check file size
-    if (file.size > MAX_PROJECT_SIZE) {
-        errors.push(`Project file too large. Max size: ${MAX_PROJECT_SIZE / (1024 * 1024)}MB`);
+    if (file.size > MAX_DEVLOG_SIZE) {
+        errors.push(`Devlog file too large. Max size: ${MAX_DEVLOG_SIZE / (1024 * 1024)}MB`);
     }
 
     // Check extension
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!ALLOWED_PROJECT_EXTENSIONS.includes(ext)) {
-        errors.push(`Invalid project file type. Allowed: ${ALLOWED_PROJECT_EXTENSIONS.join(', ')}`);
+    if (!ALLOWED_DEVLOG_EXTENSIONS.includes(ext)) {
+        errors.push(`Invalid devlog file type. Allowed: ${ALLOWED_DEVLOG_EXTENSIONS.join(', ')}`);
     }
 
     return {
@@ -95,14 +95,14 @@ export function fastValidateUploadedFiles(files) {
         allErrors.push('Preview file is required');
     }
 
-    // Validate project file
-    if (files.projectFile && files.projectFile[0]) {
-        const projectValidation = fastValidateProjectFile(files.projectFile[0]);
-        if (!projectValidation.valid) {
-            allErrors.push(...projectValidation.errors);
+    // Validate devlog file
+    if (files.devlogFile && files.devlogFile[0]) {
+        const devlogValidation = fastValidateDevlogFile(files.devlogFile[0]);
+        if (!devlogValidation.valid) {
+            allErrors.push(...devlogValidation.errors);
         }
     } else {
-        allErrors.push('Project file is required');
+        allErrors.push('Devlog file is required');
     }
 
     return {
@@ -110,3 +110,4 @@ export function fastValidateUploadedFiles(files) {
         errors: allErrors
     };
 }
+

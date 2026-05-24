@@ -4,12 +4,12 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const workersDir = path.join(__dirname, '../workers');
+const craftsmansDir = path.join(__dirname, '../craftsmans');
 
-const files = fs.readdirSync(workersDir).filter(f => f.endsWith('.js') && f !== 'index.js');
+const files = fs.readdirSync(craftsmansDir).filter(f => f.endsWith('.js') && f !== 'index.js');
 
 for (const file of files) {
-  const filePath = path.join(workersDir, file);
+  const filePath = path.join(craftsmansDir, file);
   let content = fs.readFileSync(filePath, 'utf8');
 
   // Catch files that imported 'IORedis' instead of 'Redis'

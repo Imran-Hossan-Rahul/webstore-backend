@@ -60,3 +60,36 @@ export const loginSchema = (lang = "en") => {
     }),
   });
 };
+
+export const forgotPasswordSchema = (lang = "en") => {
+  const msg = getMessages(lang);
+  return Joi.object({
+    email: Joi.string().email().required().messages({
+      "string.empty": msg.emailRequired,
+      "string.email": msg.emailValid,
+    }),
+  });
+};
+
+export const resetPasswordSchema = (lang = "en") => {
+  const msg = getMessages(lang);
+  return Joi.object({
+    token: Joi.string().required().messages({
+      "string.empty": "Token is required",
+    }),
+    password: Joi.string()
+      .min(8)
+      .pattern(
+        new RegExp(
+          "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+        )
+      )
+      .required()
+      .messages({
+        "string.empty": msg.passwordRequired,
+        "string.min": msg.passwordMin,
+        "string.pattern.base": msg.passwordPattern,
+      }),
+  });
+};
+

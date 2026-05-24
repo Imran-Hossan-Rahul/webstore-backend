@@ -8,6 +8,17 @@ const postSchema = new Schema(
       ref: "User", 
       required: true 
     },
+    title: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    slug: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
     content: {
       type: String,
       required: true,
@@ -70,29 +81,30 @@ const postSchema = new Schema(
     favoritesCount: { type: Number, default: 0 },
     
     commentsCount: { type: Number, default: 0 },
+    comments: [{ type: Schema.Types.ObjectId, ref: "Comment" }],
     
     // Rich Post Features
     postType: { 
       type: String, 
-      enum: ["thought", "project", "tutorial", "text"], 
+      enum: ["thought", "devlog", "tutorial", "text"], 
       default: "thought" 
     },
     category: { type: String, default: "General" },
-    tags: [{ type: String, trim: true }], // Project tags
+    tags: [{ type: String, trim: true }], // Devlog tags
     
     // Structured Metadata (The "Spec Sheet")
-    projectStats: {
+    devlogStats: {
       tools: [{ type: String }], // e.g., ["Figma", "Next.js"]
       timeSpent: { type: String }, // e.g., "4 hours"
-      projectLink: { type: String }, // e.g., "github.com/..."
+      devlogLink: { type: String }, // e.g., "github.com/..."
       difficulty: { 
         type: String, 
         enum: ["Beginner", "Intermediate", "Advanced", "Expert", "Master"],
         default: "Beginner"
       },
       location: { type: String }, // e.g., "Remote", "London"
-      startDate: { type: Date }, // For project timeline
-      endDate: { type: Date }, // Project end date
+      startDate: { type: Date }, // For devlog timeline
+      endDate: { type: Date }, // Devlog end date
       phase: {
         type: String,
         enum: ["Planning", "In Development", "Live", "Maintenance", "Completed"],
@@ -115,7 +127,7 @@ const postSchema = new Schema(
       milestones: [{
           title: { type: String },
           date: { type: Date },
-          status: { type: String, enum: ['planned', 'in_progress', 'completed'], default: 'planned' },
+          status: { type: String, enum: ['planned', 'in_progress', 'completed', 'Planned', 'In Progress', 'Completed'], default: 'planned' },
           description: { type: String }
       }],
       collaborators: [{ type: String }], // Array of names
@@ -124,6 +136,16 @@ const postSchema = new Schema(
       extensions: [{
           newDate: { type: Date },
           reason: { type: String },
+          date: { type: Date, default: Date.now }
+      }],
+      updateReasons: [{
+          reason: { type: String },
+          updatedAt: { type: Date, default: Date.now }
+      }],
+      activityLog: [{
+          type: { type: String }, // e.g., "create", "update", "extension", "milestone"
+          action: { type: String }, // Short label
+          details: { type: String }, // Full description
           date: { type: Date, default: Date.now }
       }]
     },
@@ -134,6 +156,22 @@ const postSchema = new Schema(
       type: String,
       enum: ["active", "archived", "deleted"],
       default: "active",
+    },
+    
+    // SEO Fields (Specifically for Devlogs/Tutorials)
+    seoTitle: {
+      type: String,
+      trim: true,
+      maxlength: 60,
+    },
+    seoDescription: {
+      type: String,
+      trim: true,
+      maxlength: 160,
+    },
+    focusKeywords: {
+      type: [String],
+      default: [],
     }
   },
   {
@@ -146,7 +184,11 @@ const postSchema = new Schema(
 // Indexes for feed performance
 postSchema.index({ createdAt: -1 });
 postSchema.index({ user: 1, createdAt: -1 });
+// DSA Optimization: O(log N) lookup for million+ posts when filtering by type and status
+postSchema.index({ postType: 1, status: 1, createdAt: -1 });
+postSchema.index({ title: "text", content: "text", tags: "text", "devlogStats.tools": "text" });
 
 const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
 
 export default Post;
+

@@ -30,7 +30,7 @@ function traverseAndReplace(dir) {
 }
 
 const targetDirs = [
-  path.join(process.cwd(), 'workers'),
+  path.join(process.cwd(), 'craftsmans'),
   path.join(process.cwd(), 'queues'),
   path.join(process.cwd(), 'controllers'),
   path.join(process.cwd(), 'config'),

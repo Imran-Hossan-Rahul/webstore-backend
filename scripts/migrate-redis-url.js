@@ -20,7 +20,7 @@ function fixRedisConnections(dir) {
       }
 
       // Also specifically check files using Redis options objects
-      if (file === 'redisClient.js' || file === 'flushWorkerFixed.js' || file === 'flushImpressionWorker.js') {
+      if (file === 'redisClient.js' || file === 'flushCraftsmanFixed.js' || file === 'flushImpressionCraftsman.js') {
         const optionRegex = /new\s+(IORedis|Redis)\(options\)/g;
         if (optionRegex.test(content)) {
           content = content.replace(optionRegex, 'new $1(process.env.REDIS_URL || "redis://127.0.0.1:6379", { maxRetriesPerRequest: null })');
@@ -37,7 +37,7 @@ function fixRedisConnections(dir) {
 }
 
 const targetDirs = [
-  path.join(process.cwd(), 'workers'),
+  path.join(process.cwd(), 'craftsmans'),
   path.join(process.cwd(), 'queues'),
   path.join(process.cwd(), 'controllers'),
   path.join(process.cwd(), 'config'),

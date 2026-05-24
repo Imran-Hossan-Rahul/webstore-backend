@@ -4,20 +4,20 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const workersDir = path.join(__dirname, '../workers');
+const craftsmansDir = path.join(__dirname, '../craftsmans');
 
 const filesToFix = [
-  'blogImageWorker.js',
-  'chatMediaWorker.js',
-  'postImageWorker.js',
-  'profileImageWorker.js',
-  'projectResourceWorker.js',
-  'quickPostMediaWorker.js',
-  'rankingWorkerFixed.js'
+  'codexImageCraftsman.js',
+  'chatMediaCraftsman.js',
+  'postImageCraftsman.js',
+  'profileImageCraftsman.js',
+  'devlogResourceCraftsman.js',
+  'quickPostMediaCraftsman.js',
+  'rankingCraftsmanFixed.js'
 ];
 
 for (const file of filesToFix) {
-  const filePath = path.join(workersDir, file);
+  const filePath = path.join(craftsmansDir, file);
   if (!fs.existsSync(filePath)) continue;
 
   let content = fs.readFileSync(filePath, 'utf8');
@@ -29,3 +29,4 @@ for (const file of filesToFix) {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 console.log('Fixed new IORedis usages!');
+

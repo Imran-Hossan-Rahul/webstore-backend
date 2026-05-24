@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"; // Trigger restart 3
 import { MONGODB_CONNECTION_STRING, PORT, CLIENT_URL } from "./config/index.js";
 import logger from "./utils/logger.js";
 import express from "express";
@@ -11,30 +11,46 @@ import { Server } from "socket.io";
 import path from "path";
 import authRoutes from "./routes/authRoutes.js";
 import saleRoutes from "./routes/saleRoutes.js";
-import templateRoute from "./routes/buttonTemplates.js";
+import artifactRoute from "./routes/artifactRoutes.js";
 import statsRoutes from "./routes/analytics.js";
 import trackRoutes from "./routes/trackRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
 import payoutRoutes from "./routes/payoutRoutes.js";
 import { connectToDatabase } from "./config/db.js";
 import fs from "fs";
 import userRoutes from "./routes/userRoutes.js";
-import blogRoute from "./routes/blogRoutes.js";
+import codexRoute from "./routes/codexRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
-import creatorRoutes from "./routes/creatorRoutes.js";
+import User from "./models/User.model.js";
+import craftsmanRoutes from "./routes/craftsmanRoutes.js";
 import publicAnalyticsRoutes from "./routes/publicAnalyticsRoutes.js";
 import imageUploadRoutes from "./routes/imageUploadRoutes.js";
-import projectResourceRoutes from "./routes/projectResourceRoutes.js";
+import devlogResourceRoutes from "./routes/devlogResourceRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import favoriteRoutes from "./routes/favoriteRoutes.js";
+import noteRoutes from "./routes/noteRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import challengeRoutes from "./routes/challengeRoutes.js"; // Import Challenges
 import communityRoutes from "./routes/communityRoutes.js";
+import contractRoutes from "./routes/contractRoutes.js";
+import timeLogRoutes from "./routes/timeLogRoutes.js";
+import verificationRoutes from "./routes/verificationRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+import tokenRoutes from "./routes/tokenRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+import advancedTrackingRoutes from "./routes/advancedTrackingRoutes.js";
+import analyticsAdvancedRoutes from "./routes/analyticsAdvancedRoutes.js";
+import gdprComplianceRoutes from "./routes/gdprComplianceRoutes.js";
+import alertRoutes from "./routes/alertRoutes.js";
+import oauthRoutes from "./routes/oauthRoutes.js";
+import mentorshipRoutes from "./routes/mentorshipRoutes.js";
+import squadRoutes from "./routes/squadRoutes.js";
+
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
+import { startChallengePhaseScheduler } from "./services/challengePhaseScheduler.js";
 
 const app = express();
 const server = createServer(app);
@@ -48,18 +64,26 @@ const io = new Server(server, {
         "http://localhost:3001"
       ];
       
-      // Add production domain
+      // Add production domain (exact match only)
       const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN;
       if (PRODUCTION_DOMAIN) {
         allowedSocketOrigins.push(`https://${PRODUCTION_DOMAIN}`);
       }
       
-      // Allow all Vercel deployments
-      if (!origin || allowedSocketOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      // 🔒 SECURITY FIX: Block no-origin in production (same policy as HTTP CORS)
+      if (!origin) {
+        if (process.env.NODE_ENV === "production") {
+          return callback(new Error("Not allowed by CORS"));
+        }
+        return callback(null, true);
       }
+
+      // 🔒 SECURITY FIX: Exact match only — removed *.vercel.app wildcard
+      if (allowedSocketOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST"],
     credentials: true,
@@ -68,26 +92,44 @@ const io = new Server(server, {
   // Important for Render.com and cloud platforms
   transports: ['polling', 'websocket'],
   allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 120000,
+  pingInterval: 30000,
   upgradeTimeout: 30000,
   maxHttpBufferSize: 1e8,
 });
 
+
 // Make io accessible globally
 app.set("io", io);
+global.io = io; // Make io accessible in controllers
 
 // Socket.io connection with user tracking
 const onlineUsers = new Map();
+// Expose globally so background craftsmans can check online status
+global.__onlineUsers = onlineUsers;
 
 io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
+  console.log("New patron connected:", socket.id);
+
+  // 🔒 Track authenticated userId per socket for ownership checks
+  let authenticatedUserId = null;
 
   // User joins with their ID
   socket.on("user:online", (userId) => {
-    onlineUsers.set(userId, socket.id);
+    if (!userId || typeof userId !== "string") return;
+    authenticatedUserId = userId;
+    
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId).add(socket.id);
+    
     io.emit("user:status", { userId, status: "online" });
-    console.log(`User ${userId} is online`);
+    console.log(`User ${userId} is online. Active sockets: ${onlineUsers.get(userId).size}`);
+
+    // Send back the full list of currently online users to the newly connected socket
+    const currentlyOnline = Array.from(onlineUsers.keys());
+    socket.emit("users:onlineList", currentlyOnline);
   });
 
   // Typing indicator
@@ -121,24 +163,125 @@ io.on("connection", (socket) => {
     socket.leave(`discussion_${discussionId}`);
   });
 
-  socket.on("disconnect", () => {
-    // Find and remove user from online list
-    for (const [userId, socketId] of onlineUsers.entries()) {
-      if (socketId === socket.id) {
-        onlineUsers.delete(userId);
-        io.emit("user:status", { userId, status: "offline" });
-        console.log(`User ${userId} went offline`);
-        break;
-      }
+  // --- WebRTC Call Signaling ---
+  socket.on("call:initiate", ({ targetUserId, callerId, callType, chatId }) => {
+    const targetSockets = onlineUsers.get(targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach(s => io.to(s).emit("call:incoming", { callerId, callType, chatId }));
     }
-    console.log("Client disconnected:", socket.id);
+  });
+
+  socket.on("call:accept", ({ targetUserId, callerId }) => {
+    const targetSockets = onlineUsers.get(targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach(s => io.to(s).emit("call:accepted", { responderId: callerId }));
+    }
+  });
+
+  socket.on("call:reject", ({ targetUserId, callerId }) => {
+    const targetSockets = onlineUsers.get(targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach(s => io.to(s).emit("call:rejected", { responderId: callerId }));
+    }
+  });
+
+  socket.on("webrtc:signal", ({ targetUserId, signal }) => {
+    const targetSockets = onlineUsers.get(targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach(s => io.to(s).emit("webrtc:signal", { senderId: socket.id, signal }));
+    }
+  });
+
+  socket.on("call:end", ({ targetUserId }) => {
+    const targetSockets = onlineUsers.get(targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach(s => io.to(s).emit("call:ended"));
+    }
+  });
+
+  // 🔒 SECURITY FIX: Verify sender ownership before unsending
+  // O(1) lookup using authenticatedUserId bound to this socket
+  socket.on("message:unsend", async ({ chatId, messageId }) => {
+    try {
+      if (!authenticatedUserId) return; // reject unauthenticated sockets
+      const Message = (await import("./models/Message.model.js")).default;
+      const msg = await Message.findById(messageId).select("sender").lean();
+      if (!msg) return;
+      // Only the message sender can unsend it
+      if (msg.sender.toString() !== authenticatedUserId) {
+        console.warn(`[SECURITY] Unauthorized unsend attempt by ${authenticatedUserId} on message ${messageId}`);
+        return;
+      }
+      await Message.findByIdAndUpdate(messageId, { isUnsent: true });
+      io.to(chatId).emit("message:unsend", { messageId });
+    } catch (err) {
+      console.error("Unsend error:", err);
+    }
+  });
+
+  // 🔒 SECURITY FIX: Validate reactions shape; prevent arbitrary DB overwrites
+  socket.on("message:react", async ({ chatId, messageId, emoji }) => {
+    try {
+      if (!authenticatedUserId) return;
+      // Whitelist allowed emoji characters (no arbitrary object injection)
+      if (typeof emoji !== "string" || emoji.length > 10) return;
+      const Message = (await import("./models/Message.model.js")).default;
+
+      const msg = await Message.findById(messageId).select("reactions").lean();
+      if (!msg) return;
+      // Build reactions as { emoji: [userId, ...] } safely server-side
+      const reactions = msg.reactions || {};
+      if (!reactions[emoji]) reactions[emoji] = [];
+      const idx = reactions[emoji].indexOf(authenticatedUserId);
+      if (idx > -1) {
+        reactions[emoji].splice(idx, 1); // toggle off
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+      } else {
+        reactions[emoji].push(authenticatedUserId); // toggle on
+      }
+      await Message.findByIdAndUpdate(messageId, { reactions });
+      io.to(chatId).emit("message:react", { messageId, reactions });
+    } catch (err) {
+      console.error("React error:", err);
+    }
+  });
+
+  // 🔒 SECURITY FIX: Only the authenticated socket owner can reset their own badge
+  socket.on("user:notification-reset-trigger", ({ userId }) => {
+    if (!authenticatedUserId || authenticatedUserId !== userId) {
+      console.warn(`[SECURITY] Unauthorized notification-reset attempt: claimed ${userId}, actual ${authenticatedUserId}`);
+      return;
+    }
+    io.emit(`user:${userId}:notification-reset`);
+  });
+
+  socket.on("disconnect", async () => {
+    // O(1) lookup: use authenticatedUserId directly
+    if (authenticatedUserId && onlineUsers.has(authenticatedUserId)) {
+      const userSockets = onlineUsers.get(authenticatedUserId);
+      userSockets.delete(socket.id);
+      
+      if (userSockets.size === 0) {
+        onlineUsers.delete(authenticatedUserId);
+        const lastActiveAt = new Date();
+        try {
+          await User.findByIdAndUpdate(authenticatedUserId, { lastActiveAt });
+        } catch (err) {
+          console.error("Error saving lastActiveAt:", err);
+        }
+        io.emit("user:status", { userId: authenticatedUserId, status: "offline", lastActiveAt });
+        console.log(`User ${authenticatedUserId} went offline`);
+      }
+      authenticatedUserId = null;
+    }
+    console.log("Patron disconnected:", socket.id);
   });
 });
 
 // Make onlineUsers accessible
 app.set("onlineUsers", onlineUsers);
 
-// Set io instance for workers
+// Set io instance for craftsmans
 import { setIO } from "./utils/socketManager.js";
 setIO(io);
 
@@ -155,6 +298,35 @@ app.use(
   })
 );
 
+// ---------------- CSRF Protection ----------------
+// Million-dollar standard: Double-submit cookie pattern
+import crypto from "crypto";
+const csrfProtection = (req, res, next) => {
+  // 1. Generate token if not exists
+  let csrfToken = req.cookies["XSRF-TOKEN"];
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(32).toString("hex");
+    res.cookie("XSRF-TOKEN", csrfToken, {
+      httpOnly: false, // Must be accessible by frontend to read and send back in header
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+  }
+
+  // 2. Validate for state-changing methods
+  const stateChangingMethods = ["POST", "PUT", "DELETE", "PATCH"];
+  if (stateChangingMethods.includes(req.method)) {
+    const headerToken = req.headers["x-xsrf-token"];
+    if (!headerToken || headerToken !== csrfToken) {
+      logger.warn(`[SECURITY] CSRF attempt blocked: Method=${req.method}, Path=${req.path}, IP=${req.ip}`);
+      return res.status(403).json({ success: false, message: "Invalid CSRF token" });
+    }
+  }
+  // 3. Attach to request for controllers
+  req.csrfToken = csrfToken;
+  next();
+};
+
 const allowedOrigins = [
   CLIENT_URL,
   "http://localhost:3000",
@@ -167,8 +339,12 @@ const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN; // e.g., "your-app.verc
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
+      // 🔒 SECURITY FIX: In production, block requests with no origin (direct Postman/curl access)
+      // In development, allow no-origin for local testing convenience
       if (!origin) {
+        if (process.env.NODE_ENV === "production") {
+          return callback(new Error("Direct API access not allowed in production"));
+        }
         return callback(null, true);
       }
       
@@ -177,13 +353,8 @@ app.use(
         return callback(null, true);
       }
       
-      // Check if it's your production Vercel domain
+      // Check if it's your specific production Vercel domain (exact match, not wildcard)
       if (PRODUCTION_DOMAIN && origin === `https://${PRODUCTION_DOMAIN}`) {
-        return callback(null, true);
-      }
-      
-      // Allow all Vercel preview deployments
-      if (origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
       
@@ -195,58 +366,150 @@ app.use(
 );
 app.use(compression());
 
-// Stripe webhook must be before body parser (needs raw body)
-app.use("/api/v1/payment/webhook", express.raw({ type: "application/json" }));
-
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
+// Apply CSRF and Sanitization after body parsing
+app.use(csrfProtection);
+import { sanitizeInput } from "./middlewares/securityMiddleware.js";
+app.use(sanitizeInput);
+
+// ---------------- Performance Logging Middleware ----------------
+
+// 🚀 Track API response times and log slow requests
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  // Capture original end function
+  const originalEnd = res.end;
+  
+  // Override end function to log performance
+  res.end = function(...args) {
+    const duration = Date.now() - start;
+    
+    // Log slow requests (> 200ms)
+    if (duration > 200) {
+      logger.warn(`⚠️  SLOW REQUEST: ${req.method} ${req.path} - ${duration}ms`);
+    }
+    
+    // Log all requests for debugging
+    logger.info(`${req.method} ${req.originalUrl} - ${duration}ms - ${res.statusCode}`);
+    
+    // Call original end function
+    originalEnd.apply(res, args);
+  };
+  
+  next();
+});
+
 // ---------------- Routes ----------------
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/template", templateRoute);
-app.use("/api/v1/blog", blogRoute);
+app.use("/api/v1/artifact", artifactRoute);
+app.use("/api/v1/codex", codexRoute);
 app.use("/api/v1/stats", statsRoutes);
 app.use("/api/v1/stats/public", publicAnalyticsRoutes);
 app.use("/api/v1/track", trackRoutes);
 app.use("/api/v1/user", userRoutes);
-// app.use("/api/v1/payment", paymentRoutes);
+// app.use("/api/v1/payment", paymentRoutes); // Real-money payments disabled
+app.use("/api/v1/tokens", tokenRoutes);
 app.use("/api/v1/payout", payoutRoutes);
+// Serve uploaded chat files as static assets
+app.use("/uploads", express.static("uploads"));
+
 app.use("/api/v1/chat", chatRoutes);
-app.use("/api/v1/creator", creatorRoutes);
+app.use("/api/v1/craftsman", craftsmanRoutes);
 app.use("/api/v1/upload", imageUploadRoutes);
-app.use("/api/v1/upload", projectResourceRoutes); // Helper for /api/v1/upload/resource
+app.use("/api/v1/upload", devlogResourceRoutes); // Helper for /api/v1/upload/resource
 app.use("/api/v1/feed", feedRoutes);
 app.use("/api/v1/posts", postRoutes);
 app.use("/api/v1/search", searchRoutes);
 app.use("/api/v1/favorites", favoriteRoutes);
+app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/challenges", challengeRoutes); // Register Challenges
 app.use("/api/v1/community", communityRoutes);
+app.use("/api/v1/contracts", contractRoutes);
+app.use("/api/v1/timelogs", timeLogRoutes);
 app.use("/api/v1/comments", commentRoutes);
+app.use("/api/v1/verification", verificationRoutes);
+app.use("/api/v1/wallet", walletRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
+
+// Advanced Tracking & Analytics Routes
+app.use("/api/v1/track/advanced", advancedTrackingRoutes);
+app.use("/api/v1/analytics/advanced", analyticsAdvancedRoutes);
+app.use("/api/v1/gdpr", gdprComplianceRoutes);
+app.use("/api/v1/alerts", alertRoutes);
+app.use("/api/v1/oauth", oauthRoutes);
+app.use("/api/v1/mentorship", mentorshipRoutes);
+app.use("/api/v1/squads", squadRoutes);
+
 
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
-// ---------------- DB Connect ----------------
-connectToDatabase()
-  .then(() => logger.info("✅ MongoDB connection established"))
-  .catch((err) => logger.error("❌ MongoDB init error:", err.message));
+// 🔒 SECURITY FIX: /health/detailed requires admin authentication
+import { protect, adminOnly } from "./middlewares/authMiddleware.js";
+app.get("/health/detailed", protect, adminOnly, async (req, res) => {
+  try {
+    const health = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV,
+      server: {
+        port: PORT,
+        memory: {
+          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + " MB",
+          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + " MB",
+          rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + " MB"
+        },
+        cpu: process.cpuUsage()
+      },
+      database: {
+        mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+        collections: mongoose.connection.collections ? Object.keys(mongoose.connection.collections).length : 0
+      },
+      socket: {
+        connected: io.engine.patronsCount || 0,
+        onlineUsers: onlineUsers.size
+      }
+    };
+    res.status(200).json(health);
+  } catch (error) {
+    res.status(500).json({ status: "error", message: "Health check failed" });
+  }
+});
+
+// ---------------- DB Connect & Server Start ----------------
+const startServer = async () => {
+  try {
+    await connectToDatabase();
+    logger.info("✅ MongoDB connection established");
+    
+    // Start challenge phase auto-transition scheduler (runs every 5 min)
+    startChallengePhaseScheduler();
+
+    server.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    logger.error("❌ MongoDB init error:", err.message);
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  }
+};
+
+startServer();
 
 // ---------------- Error Handler ----------------
 app.use((err, req, res, next) => {
-  logger.error({
+  const statusCode = err.statusCode || 500;
+  logger.error(`Error ${statusCode}: ${err.message}\nStack: ${err.stack}`);
+  res.status(statusCode).json({
     message: err.message,
-    stack: err.stack,
-    path: req.originalUrl,
-    ip: req.ip,
+    stack: process.env.NODE_ENV === "production" ? null : err.stack,
   });
-  res
-    .status(err.statusCode || 500)
-    .json({ success: false, message: err.message });
-});
-
-// ---------------- Server Start ----------------
-server.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
 });

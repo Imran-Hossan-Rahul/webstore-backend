@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import { MONGODB_CONNECTION_STRING } from "../config/index.js";
 
 mongoose.connect(MONGODB_CONNECTION_STRING)
@@ -8,16 +8,16 @@ mongoose.connect(MONGODB_CONNECTION_STRING)
 
 async function testViewHistory() {
   try {
-    const template = await ButtonTemplate.findOne();
+    const artifact = await Artifact.findOne();
     
-    if (!template) {
-      console.log("❌ No templates found");
+    if (!artifact) {
+      console.log("❌ No artifacts found");
       return;
     }
 
-    console.log(`\n📋 Template: ${template.title}`);
-    console.log(`📊 Current viewsCount: ${template.viewsCount}`);
-    console.log(`📅 Current viewHistory entries: ${template.viewHistory?.length || 0}`);
+    console.log(`\n📋 Artifact: ${artifact.title}`);
+    console.log(`📊 Current viewsCount: ${artifact.viewsCount}`);
+    console.log(`📅 Current viewHistory entries: ${artifact.viewHistory?.length || 0}`);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -28,25 +28,25 @@ async function testViewHistory() {
       
       const count = Math.floor(Math.random() * 10) + 5;
 
-      const existing = template.viewHistory?.find(entry => {
+      const existing = artifact.viewHistory?.find(entry => {
         const entryDate = new Date(entry.date);
         entryDate.setHours(0, 0, 0, 0);
         return entryDate.getTime() === date.getTime();
       });
 
       if (!existing) {
-        template.viewHistory = template.viewHistory || [];
-        template.viewHistory.push({ date, count });
+        artifact.viewHistory = artifact.viewHistory || [];
+        artifact.viewHistory.push({ date, count });
         console.log(`✅ Added ${count} views for ${date.toISOString().split('T')[0]}`);
       } else {
         console.log(`⚠️ Entry already exists for ${date.toISOString().split('T')[0]}`);
       }
     }
 
-    await template.save({ validateBeforeSave: false });
+    await artifact.save({ validateBeforeSave: false });
     
     console.log(`\n✅ Test data added!`);
-    console.log(`📊 New viewHistory entries: ${template.viewHistory.length}`);
+    console.log(`📊 New viewHistory entries: ${artifact.viewHistory.length}`);
     
     process.exit(0);
   } catch (err) {
@@ -56,3 +56,5 @@ async function testViewHistory() {
 }
 
 testViewHistory();
+
+

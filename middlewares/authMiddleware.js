@@ -2,7 +2,7 @@
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 import User from "../models/User.model.js" // তোমার User model path ঠিক করে নাও
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import { JWT_ACCESS_SECRET } from "../config/index.js";
 
 // --------------------
@@ -16,9 +16,9 @@ export const protect = asyncHandler(async (req, res, next) => {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  // 🔹 2️⃣ Cookie (frontend থেকে credentials: "include" করলে)
-  if (!token && req.cookies?.token) {
-    token = req.cookies.token;
+  // 🔹 2️⃣ Cookie (Priority for million-dollar security)
+  if (!token && req.cookies?.accessToken) {
+    token = req.cookies.accessToken;
   }
 
   if (!token) {
@@ -31,7 +31,7 @@ export const protect = asyncHandler(async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
 
     // 🔹 User find
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await User.findById(decoded.id).select("-password +isSuperAdmin");
     if (!user) {
       return res
         .status(401)
@@ -57,8 +57,8 @@ export const optionalProtect = asyncHandler(async (req, res, next) => {
 
   if (req.headers.authorization?.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
-  } else if (req.cookies?.token) {
-    token = req.cookies.token;
+  } else if (req.cookies?.accessToken) {
+    token = req.cookies.accessToken;
   }
 
   if (token) {
@@ -75,7 +75,7 @@ export const optionalProtect = asyncHandler(async (req, res, next) => {
 // Allow only admin (or super admin)
 // --------------------
 export const adminOnly = (req, res, next) => {
-  if (req.user && (req.user.role === "admin" || req.user.isSuperAdmin)) {
+  if (req.user && (req.user.role === "admin" || req.user.role === "superadmin" || req.user.isSuperAdmin)) {
     return next();
   }
   return res
@@ -84,10 +84,22 @@ export const adminOnly = (req, res, next) => {
 };
 
 // --------------------
+// Allow verified hosts or admins
+// --------------------
+export const hostOnly = (req, res, next) => {
+  if (req.user && (req.user.role === "admin" || req.user.role === "superadmin" || req.user.isSuperAdmin || req.user.isHost)) {
+    return next();
+  }
+  return res
+    .status(403)
+    .json({ success: false, message: "Access denied: Verified hosts or admins only" });
+};
+
+// --------------------
 // Allow only super admin
 // --------------------
 export const superAdminOnly = (req, res, next) => {
-  if (req.user && req.user.isSuperAdmin) {
+  if (req.user && (req.user.role === "superadmin" || req.user.isSuperAdmin)) {
     return next();
   }
   return res
@@ -96,46 +108,73 @@ export const superAdminOnly = (req, res, next) => {
 };
 
 // --------------------
-// Creator-only gate
-// Only the whitelisted creator email can call creator routes.
+// Restrict to specific roles
 // --------------------
-const WHITELISTED_CREATOR_EMAIL = "imranhossanrahul.dev@gmail.com";
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || (!roles.includes(req.user.role) && !req.user.isSuperAdmin)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to perform this action",
+      });
+    }
+    next();
+  };
+};
 
-export const creatorOnly = (req, res, next) => {
+// --------------------
+// Craftsman-only gate
+// Only the whitelisted craftsman email can call craftsman routes.
+// --------------------
+export const craftsmanOnly = (req, res, next) => {
+  // Support multiple whitelisted emails from .env
+  const emailsStr = process.env.WHITELISTED_CRAFTSMAN_EMAILS || "";
+  const whitelistedEmails = new Set(
+    emailsStr.toLowerCase().split(",").map(e => e.trim()).filter(Boolean)
+  );
+
+  // MUST use environment variables for whitelisting. 
+  // If not set, nobody is a craftsman by default (Zero Trust).
+  if (whitelistedEmails.size === 0) {
+    logger.warn("[SECURITY] No craftsman emails whitelisted in .env!");
+  }
+
   if (
     req.user &&
     req.user.email &&
-    req.user.email.toLowerCase() === WHITELISTED_CREATOR_EMAIL
+    whitelistedEmails.has(req.user.email.toLowerCase())
   ) {
     return next();
   }
   return res.status(403).json({
     success: false,
-    message: "Creator access is not available for this account.",
+    message: "Craftsman access is not available for this account.",
   });
 };
 
 // --------------------
-// Template ownership or admin check
-// Only creator OR admin/superadmin can update/delete
+// Artifact ownership or admin check
+// Only craftsman OR admin/superadmin can update/delete
 // --------------------
-export const templateOwnerOrAdmin = asyncHandler(async (req, res, next) => {
-  const template = await ButtonTemplate.findById(req.params.id);
-  if (!template || !template.isActive) {
+export const artifactOwnerOrAdmin = asyncHandler(async (req, res, next) => {
+  const artifact = await Artifact.findById(req.params.id);
+  if (!artifact || !artifact.isActive) {
     return res
       .status(404)
-      .json({ success: false, message: "Template not found" });
+      .json({ success: false, message: "Artifact not found" });
   }
 
-  // Creator or admin/superadmin
+  // Craftsman or admin/superadmin
   if (
-    template.user.toString() === req.user._id.toString() ||
+    artifact.user.toString() === req.user._id.toString() ||
     req.user.isSuperAdmin ||
     req.user.role === "admin"
   ) {
-    req.template = template; // attach template for controller use
+    req.artifact = artifact; // attach artifact for controller use
     return next();
   }
 
   return res.status(403).json({ success: false, message: "Access denied" });
 });
+
+

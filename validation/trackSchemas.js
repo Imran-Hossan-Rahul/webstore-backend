@@ -54,7 +54,7 @@ export const trackVisitSchema = (lang = "en") => {
       utm_campaign: Joi.string().allow(null, ""),
       utm_term: Joi.string().allow(null, ""),
       utm_content: Joi.string().allow(null, ""),
-    }).required(),
+    }).optional().default({}),
     userAgent: Joi.string()
       .required()
       .messages({
@@ -67,7 +67,7 @@ export const trackVisitSchema = (lang = "en") => {
         "any.required": msg.required.replace("{{#label}}", "timestamp"),
         "date.base": msg.minDate.replace("{{#label}}", "timestamp"),
       }),
-  });
+  }).unknown(true);
 };
 
 /**
@@ -113,7 +113,7 @@ export const trackEventSchema = (lang = "en") => {
         "any.required": msg.required.replace("{{#label}}", "timestamp"),
         "date.base": msg.minDate.replace("{{#label}}", "timestamp"),
       }),
-  });
+  }).unknown(true);
 };
 
 /**
@@ -162,5 +162,5 @@ export const trackSessionSchema = (lang = "en") => {
           .replace("{{#label}}", "pageViews")
           .replace("{{#limit}}", "1"),
       }),
-  });
+  }).unknown(true);
 };

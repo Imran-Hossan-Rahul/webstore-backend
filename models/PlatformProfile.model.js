@@ -31,8 +31,8 @@ const platformProfileSchema = new Schema(
     },
     hireHistory: [
       {
-        creatorId: { type: Schema.Types.ObjectId, ref: "User" },
-        projectTitle: String,
+        craftsmanId: { type: Schema.Types.ObjectId, ref: "User" },
+        devlogTitle: String,
         hiredAt: { type: Date, default: Date.now },
         status: {
           type: String,
@@ -41,7 +41,7 @@ const platformProfileSchema = new Schema(
         },
       },
     ],
-    savedCreators: [
+    savedCraftsmen: [
       {
         type: Schema.Types.ObjectId,
         ref: "User",
@@ -69,10 +69,11 @@ const platformProfileSchema = new Schema(
 
 // Indexes for performance
 platformProfileSchema.index({ userId: 1 });
-platformProfileSchema.index({ "savedCreators": 1 });
+platformProfileSchema.index({ "savedCraftsmen": 1 });
 
 const PlatformProfile =
   mongoose.models.PlatformProfile ||
   mongoose.model("PlatformProfile", platformProfileSchema, "platformprofiles");
 
 export default PlatformProfile;
+

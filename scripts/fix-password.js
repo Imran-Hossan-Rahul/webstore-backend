@@ -1,5 +1,5 @@
 /**
- * Quick fix: directly update the creator password bypassing Mongoose hooks.
+ * Quick fix: directly update the craftsman password bypassing Mongoose hooks.
  */
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const CREATOR_EMAIL = "imranhossanrahul.dev@gmail.com";
+const CRAFTSMAN_EMAIL = "imranhossanrahul.dev@gmail.com";
 const CORRECT_PASSWORD = "12!@imraN";
 
 async function run() {
@@ -22,14 +22,14 @@ async function run() {
   const result = await mongoose.connection
     .collection("users")
     .updateOne(
-      { email: CREATOR_EMAIL },
+      { email: CRAFTSMAN_EMAIL },
       { $set: { password: hash } }
     );
 
   if (result.matchedCount === 0) {
-    console.log("❌ User not found:", CREATOR_EMAIL);
+    console.log("❌ User not found:", CRAFTSMAN_EMAIL);
   } else {
-    console.log("✅ Password updated successfully for:", CREATOR_EMAIL);
+    console.log("✅ Password updated successfully for:", CRAFTSMAN_EMAIL);
     console.log("   Password:", CORRECT_PASSWORD);
   }
 
@@ -41,3 +41,4 @@ run().catch((err) => {
   console.error("❌ Error:", err);
   process.exit(1);
 });
+

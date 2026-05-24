@@ -1,7 +1,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { projectResourceQueue } from "../queues/projectResourceQueue.js";
+import { devlogResourceQueue } from "../queues/devlogResourceQueue.js";
 
 // Configure multer
 const storage = multer.diskStorage({
@@ -50,7 +50,7 @@ export const uploadResource = multer({
  * Handle Resource Upload (Temp)
  * @route POST /api/v1/upload/resource
  */
-export const uploadProjectResource = async (req, res) => {
+export const uploadDevlogResource = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -71,3 +71,4 @@ export const uploadProjectResource = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

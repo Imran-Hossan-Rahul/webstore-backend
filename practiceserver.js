@@ -12,12 +12,12 @@ import path from "path";
 
 import authRoutes from "./routes/authRoutes.js";
 import saleRoutes from "./routes/saleRoutes.js";
-import templateRoute from "./routes/buttonTemplates.js";
+import artifactRoute from "./routes/artifacts.js";
 import statsRoutes from "./routes/analytics.js";
 import trackRoutes from "./routes/trackRoutes.js";
 import { connectToDatabase } from "./config/db.js";
 import fs from "fs";
-import projectRoutes from "./routes/projectRoutes.js"
+import devlogRoutes from "./routes/devlogRoutes.js"
 
 
 
@@ -33,9 +33,9 @@ app.set("io", io);
 
 // Socket.io connection
 io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
+  console.log("New patron connected:", socket.id);
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+    console.log("Patron disconnected:", socket.id);
   });
 });
 
@@ -50,7 +50,7 @@ app.use(
 if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 if (!fs.existsSync("uploads/thumbnails")) fs.mkdirSync("uploads/thumbnails");
 if (!fs.existsSync("uploads/zips")) fs.mkdirSync("uploads/zips");
-if (!fs.existsSync("uploads/projects")) fs.mkdirSync("uploads/projects");
+if (!fs.existsSync("uploads/devlogs")) fs.mkdirSync("uploads/devlogs");
 
 
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
@@ -61,10 +61,10 @@ app.use(cookieParser());
 
 // ---------------- Routes ----------------
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/template", templateRoute);
+app.use("/api/v1/artifact", artifactRoute);
 app.use("/api/v1/stats", statsRoutes);
 app.use("/api/v1/track", trackRoutes);
-app.use("/api/v1/projects", projectRoutes);
+app.use("/api/v1/devlogs", devlogRoutes);
 
 // Serve framework extracted folders
 app.use(
@@ -82,7 +82,7 @@ app.use(
   express.static(path.join(process.cwd(), "uploads/zips"))
 );
 
-// serve framework project folders dynamically
+// serve framework devlog folders dynamically
 app.use(
   "/framework-preview",
   express.static(path.join(__dirname, "uploads/framework"))
@@ -115,3 +115,5 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
 });
+
+

@@ -46,8 +46,8 @@ const fileFilter = (req, file, cb) => {
       cb(new Error("Preview must be image or video"));
     }
   }
-  // projectFile → zip/json/html/js/css
-  else if (file.fieldname === "projectFile") {
+  // devlogFile → zip/json/html/js/css
+  else if (file.fieldname === "devlogFile") {
     const allowed = [
       "application/zip",
       "application/x-zip-compressed",
@@ -64,7 +64,7 @@ const fileFilter = (req, file, cb) => {
     ) {
       cb(null, true);
     } else {
-      cb(new Error("Project file must be zip/json/html/js/css"));
+      cb(new Error("Devlog file must be zip/json/html/js/css"));
     }
   } else {
     cb(null, false);
@@ -75,7 +75,8 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max for projectFile
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max for devlogFile
 });
 
 export default upload;
+

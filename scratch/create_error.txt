@@ -1,0 +1,5 @@
+ValidationError: Codex validation failed: seoTitle: Path `seoTitle` (`Scale Express.js Performance Using PM2 Clustering &amp; Multi-Co`) is longer than the maximum allowed length (60).
+    at Document.invalidate (C:\Users\Imran hossan\store\webstore-backend\node_modules\mongoose\lib\document.js:3219:32)
+    at C:\Users\Imran hossan\store\webstore-backend\node_modules\mongoose\lib\document.js:3012:17
+    at C:\Users\Imran hossan\store\webstore-backend\node_modules\mongoose\lib\schematype.js:1368:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)

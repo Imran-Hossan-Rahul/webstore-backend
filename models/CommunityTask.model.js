@@ -15,7 +15,7 @@ const solutionSchema = new mongoose.Schema({
 });
 
 const communityTaskSchema = new mongoose.Schema({
-  creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  craftsman: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: {
@@ -52,7 +52,7 @@ const communityTaskSchema = new mongoose.Schema({
   isPublic: { type: Boolean, default: true },
   bounty: {
     amount: Number,
-    currency: { type: String, default: "USD" },
+    currency: { type: String, default: "TKNS" },
     isActive: { type: Boolean, default: false }
   },
   metadata: { type: mongoose.Schema.Types.Mixed }, // additional data
@@ -60,7 +60,7 @@ const communityTaskSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for efficient queries
-communityTaskSchema.index({ creator: 1, createdAt: -1 });
+communityTaskSchema.index({ craftsman: 1, createdAt: -1 });
 communityTaskSchema.index({ category: 1, status: 1, createdAt: -1 });
 communityTaskSchema.index({ tags: 1 });
 communityTaskSchema.index({ status: 1, createdAt: -1 });

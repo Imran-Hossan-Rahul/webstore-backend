@@ -1,14 +1,19 @@
 import mongoose from "mongoose";
 import Chat from "../models/Chat.model.js";
+import Message from "../models/Message.model.js";
 import User from "../models/User.model.js";
+import Follow from "../models/Follow.model.js";
 import { createNotification } from "./notificationController.js";
+import { chatMediaQueue } from "../queues/chatMediaQueue.js";
+import { chatMessageQueue } from "../queues/chatMessageQueue.js";
+import { getIO } from "../utils/socketManager.js";
 
 // Get all users for chat list
 export const getUsers = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
     const users = await User.find({ _id: { $ne: userId } })
-      .select("username name email profilePicture role createdAt")
+      .select("username name email profilePicture role createdAt lastActiveAt")
       .sort({ createdAt: -1 });
     res.json({ success: true, users });
   } catch (error) {
@@ -24,14 +29,31 @@ export const getOrCreateChat = async (req, res) => {
 
     let chat = await Chat.findOne({
       participants: { $all: [currentUserId, userId] }
-    }).populate("participants", "username name email profilePicture role");
+    }).populate("participants", "username name email profilePicture role lastActiveAt");
+
+    const targetUser = await User.findById(userId).select("privacySettings name username followers");
+    if (!targetUser) return res.status(404).json({ success: false, message: "User not found" });
+
+    const privacy = targetUser.privacySettings || {};
+
+    // ── 1. Messaging Permission Check ────────────────────────────────────────
+    if (!chat) { // Only block NEW chats if strict, but professional systems often block messages too
+       if (privacy.whoCanMessage === "nobody") {
+         return res.status(403).json({ success: false, message: `${targetUser.name} has disabled direct messages.` });
+       }
+       if (privacy.whoCanMessage === "followers") {
+         const isFollowing = await Follow.exists({ follower: currentUserId, following: userId });
+         if (!isFollowing) {
+           return res.status(403).json({ success: false, message: `Only followers can message ${targetUser.name}.` });
+         }
+       }
+    }
 
     if (!chat) {
       chat = await Chat.create({
-        participants: [currentUserId, userId],
-        messages: []
+        participants: [currentUserId, userId]
       });
-      chat = await chat.populate("participants", "username name email profilePicture role");
+      chat = await chat.populate("participants", "username name email profilePicture role lastActiveAt");
     }
 
     res.json({ success: true, chat });
@@ -43,15 +65,37 @@ export const getOrCreateChat = async (req, res) => {
 // Get all chats for current user
 export const getUserChats = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    const chats = await Chat.find({
-      participants: userId
-    })
-      .populate("participants", "username name email profilePicture role")
-      .populate("lastMessage.sender", "username name")
-      .sort({ updatedAt: -1 });
+    const rawUserId = req.user._id || req.user.id;
+    const userObjId = new mongoose.Types.ObjectId(rawUserId);
 
-    res.json({ success: true, chats });
+    const chats = await Chat.find({
+      participants: rawUserId
+    })
+      .populate("participants", "username name email profilePicture role lastActiveAt")
+      .populate("lastMessage.sender", "username name")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const chatIds = chats.map(c => c._id);
+    const unreadCounts = await Message.aggregate([
+      { 
+        $match: { 
+          chatId: { $in: chatIds }, 
+          sender: { $ne: userObjId }, 
+          readBy: { $ne: userObjId } 
+        } 
+      },
+      { $group: { _id: "$chatId", count: { $sum: 1 } } }
+    ]);
+
+    const unreadMap = new Map(unreadCounts.map(u => [u._id.toString(), u.count]));
+
+    const chatsWithUnread = chats.map(chat => ({
+      ...chat,
+      unreadCount: unreadMap.get(chat._id.toString()) || 0
+    }));
+
+    res.json({ success: true, chats: chatsWithUnread });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -62,8 +106,7 @@ export const getChatMessages = async (req, res) => {
   try {
     const { chatId } = req.params;
     const chat = await Chat.findById(chatId)
-      .populate("messages.sender", "username name profilePicture")
-      .populate("participants", "username name email profilePicture role");
+      .populate("participants", "username name email profilePicture role lastActiveAt");
 
     if (!chat) {
       return res.status(404).json({ success: false, message: "Chat not found" });
@@ -75,7 +118,35 @@ export const getChatMessages = async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    res.json({ success: true, messages: chat.messages, chat });
+    const messages = await Message.find({ chatId })
+      .populate("sender", "username name profilePicture")
+      .populate("reactions.user", "username name")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // ── 3. Read Receipts Privacy Check ──────────────────────────────────────
+    const participantsWithPrivacy = await User.find({
+      _id: { $in: chat.participants.map(p => p._id) }
+    }).select("privacySettings");
+
+    const privacyMap = new Map(
+      participantsWithPrivacy.map(p => [p._id.toString(), p.privacySettings?.readReceipts !== false])
+    );
+
+    const filteredMessages = messages
+      .filter(msg => !msg.deletedFor || !msg.deletedFor.some(id => id.toString() === userId.toString()))
+      .map(msg => ({
+        ...msg,
+        readBy: (msg.readBy || []).filter(readerId => {
+          const readerIdStr = readerId.toString();
+          // Always show to the person who read it
+          if (readerIdStr === userId.toString()) return true;
+          // Otherwise check their privacy setting
+          return privacyMap.get(readerIdStr);
+        })
+      }));
+
+    res.json({ success: true, messages: filteredMessages, chat });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -106,58 +177,95 @@ export const sendMessage = async (req, res) => {
       return res.status(403).json({ success: false, message: "You are not a participant of this chat" });
     }
 
-    const newMessage = {
+    // ── 2. Real-time Messaging Privacy Check ────────────────────────────────
+    const recipientId = chat.participants.find(p => p.toString() !== userIdStr);
+    if (recipientId) {
+      const recipient = await User.findById(recipientId).select("privacySettings");
+      const rPrivacy = recipient?.privacySettings || {};
+      
+      if (rPrivacy.whoCanMessage === "nobody") {
+        return res.status(403).json({ success: false, message: "This user has disabled messages." });
+      }
+      if (rPrivacy.whoCanMessage === "followers") {
+        const isFollowing = await Follow.exists({ follower: userId, following: recipientId });
+        if (!isFollowing) {
+          return res.status(403).json({ success: false, message: "Only followers can message this user." });
+        }
+      }
+    }
+
+    const newMessageParams = {
+      chatId,
       sender: userId,
       content,
       type,
-      read: false,
-      createdAt: new Date()
     };
 
-    if (fileUrl) newMessage.fileUrl = fileUrl;
-    if (fileName) newMessage.fileName = fileName;
+    if (fileUrl) newMessageParams.fileUrl = fileUrl;
+    if (fileName) newMessageParams.fileName = fileName;
 
-    chat.messages.push(newMessage);
+    const newMessage = await Message.create(newMessageParams);
+
     chat.lastMessage = {
-      content,
+      content: type === "text" ? content : `Sent a ${type}`,
       sender: userId,
-      createdAt: new Date()
+      createdAt: newMessage.createdAt
     };
     chat.updatedAt = new Date();
-
     await chat.save();
 
-    // Get the newly added message with populated sender
-    const updatedChat = await Chat.findById(chatId)
-      .populate("messages.sender", "username name profilePicture")
-      .populate("participants", "username name email profilePicture role");
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "username name profilePicture");
 
-    const populatedMessage = updatedChat.messages[updatedChat.messages.length - 1];
-
-    // Emit to chat room via socket
-    const io = req.app.get("io");
+    // ── Fast path: emit to connected patrons immediately ──────────────────
+    const io = getIO();
     if (io) {
       io.to(chatId).emit("message:new", populatedMessage);
-      
-      // Notify other participants
-      chat.participants.forEach(async (participantId) => {
-        if (participantId.toString() !== userIdStr) {
-          io.emit(`user:${participantId}:newMessage`, { chatId, message: populatedMessage });
-          
-          // Create notification
-          const sender = await User.findById(userId).select("name username");
-          await createNotification(participantId, {
-            sender: userId,
-            type: "message",
-            title: "New Message",
-            message: `${sender?.name || sender?.username} sent you a message`,
-            link: `/inbox?chat=${chatId}`
+
+      // ── Delivery tracking: if recipient is online, mark as delivered instantly ──
+      const onlineUsers = global.__onlineUsers;
+      const recipientParticipantId = chat.participants.find(p => p.toString() !== userIdStr);
+      if (recipientParticipantId && onlineUsers) {
+        const recipientIdStr = recipientParticipantId.toString();
+        const recipientSocketId = onlineUsers.get(recipientIdStr);
+        if (recipientSocketId) {
+          // Recipient is online — mark delivered immediately
+          await Message.findByIdAndUpdate(newMessage._id, {
+            $addToSet: { deliveredTo: recipientParticipantId }
           });
           
-          io.emit(`user:${participantId}:notification`, { type: "message" });
+          // Mutate the object in memory so the HTTP response includes this status
+          populatedMessage.deliveredTo = [recipientParticipantId];
+          
+          // Notify sender that message was delivered
+          const senderSockets = onlineUsers.get(userIdStr);
+          if (senderSockets) {
+            senderSockets.forEach(socketId => {
+              io.to(socketId).emit("message:delivered", {
+                messageId: newMessage._id.toString(),
+                chatId,
+              });
+            });
+          }
+        }
+      }
+
+      chat.participants.forEach((participantId) => {
+        if (participantId.toString() !== userIdStr) {
+          io.emit(`user:${participantId}:newMessage`, { chatId, message: populatedMessage });
         }
       });
     }
+
+    // ── Slow path: enqueue fan-out (notifications for offline users) ──────
+    await chatMessageQueue.add("fan-out", {
+      chatId,
+      messageId: newMessage._id.toString(),
+      senderId: userIdStr,
+      participantIds: chat.participants.map(p => p.toString()),
+      content,
+      type,
+    });
 
     res.json({ success: true, message: populatedMessage });
   } catch (error) {
@@ -182,17 +290,173 @@ export const markAsRead = async (req, res) => {
       return res.status(404).json({ success: false, message: "Chat not found" });
     }
 
-    const userIdStr = userId.toString();
-    chat.messages.forEach(msg => {
-      if (msg.sender && msg.sender.toString() !== userIdStr) {
-        msg.read = true;
-      }
-    });
+    await Message.updateMany(
+      { chatId, sender: { $ne: userId }, readBy: { $ne: userId } },
+      { $push: { readBy: userId } }
+    );
 
-    await chat.save();
+    // ── Emit read-receipt to the other participant (sender) ──────────────
+    const io = getIO();
+    if (io) {
+      // Notify everyone in the chat room that messages were read
+      io.to(chatId).emit("message:seen", { chatId, readerId: userId.toString() });
+      io.emit(`user:${userId}:chatRead`);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error("Mark as read error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Upload media file for a chat (Queue-based — files go to Cloudinary via craftsman)
+export const uploadMedia = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const userId = req.user._id || req.user.id;
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
+
+    const isParticipant = chat.participants.some(p => p.toString() === userId.toString());
+    if (!isParticipant) return res.status(403).json({ success: false, message: "Unauthorized" });
+
+    const isImage = req.file.mimetype.startsWith("image/");
+    const fileType = isImage ? "image" : "file";
+
+    // ── Temp URL for immediate display (will be replaced by Cloudinary URL) ─
+    const backendBase = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const tempFileUrl = `${backendBase}/uploads/chat/${req.file.filename}`;
+
+    // ── Create Message document immediately (fast path) ────────────────────
+    const newMessage = await Message.create({
+      chatId,
+      sender: userId,
+      content: req.file.originalname,
+      type: fileType,
+      fileUrl: tempFileUrl,   // temp — craftsman will replace with Cloudinary URL
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+    });
+
+    chat.lastMessage = {
+      content: `Sent a ${fileType}`,
+      sender: userId,
+      createdAt: newMessage.createdAt,
+    };
+    chat.updatedAt = new Date();
+    await chat.save();
+
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "username name profilePicture");
+
+    // ── Emit immediately so UI shows the file now ──────────────────────────
+    const io = req.app.get("io");
+    if (io) {
+      io.to(chatId).emit("message:new", populatedMessage);
+      chat.participants.forEach(participantId => {
+        if (participantId.toString() !== userId.toString()) {
+          io.emit(`user:${participantId}:newMessage`, { chatId, message: populatedMessage });
+        }
+      });
+    }
+
+    // ── Respond to patron immediately — don't wait for Cloudinary ──────────
+    res.json({ success: true, message: populatedMessage });
+
+    // ── Enqueue Cloudinary upload (non-blocking after response sent) ────────
+    await chatMediaQueue.add(
+      "upload",
+      {
+        filePath: req.file.path,  // absolute disk path
+        chatId: chatId.toString(),
+        messageId: newMessage._id.toString(),
+        senderId: userId.toString(),
+        mediaType: fileType,
+        originalName: req.file.originalname,
+      },
+      { priority: 1 }
+    );
+
+  } catch (error) {
+    console.error("Upload media error:", error);
+    // Only send error if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+};
+
+// Get count of unique chats with unread messages
+export const getUnreadChatsCount = async (req, res) => {
+  try {
+    const rawUserId = req.user._id || req.user.id;
+    const userId = new mongoose.Types.ObjectId(rawUserId);
+    
+    // Highly Scalable Aggregation Pipeline (supports millions of users):
+    // 1. Match ONLY the chats where the current user is a participant (Solves the cross-account bug).
+    // 2. Perform a lookup on the 'messages' collection for each chat.
+    // 3. Find messages NOT sent by the user, and NOT read by the user.
+    // 4. Use $limit: 1 to stop searching as soon as ONE unread message is found (O(1) early exit).
+    // 5. Count how many chats have at least one such unread message.
+    const unreadCountAggregate = await Chat.aggregate([
+      { $match: { participants: userId } },
+      { 
+        $lookup: {
+          from: "messages",
+          let: { chatId: "$_id" },
+          pipeline: [
+            { 
+              $match: {
+                $expr: { $eq: ["$chatId", "$$chatId"] },
+                sender: { $ne: userId },
+                readBy: { $ne: userId }
+              }
+            },
+            { $limit: 1 } // Early exit ensures massive performance gains
+          ],
+          as: "unreadMessages"
+        }
+      },
+      { $match: { "unreadMessages.0": { $exists: true } } },
+      { $count: "unreadChats" }
+    ]);
+
+    const count = unreadCountAggregate.length > 0 ? unreadCountAggregate[0].unreadChats : 0;
+
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error("Unread chat count error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete message for current user only
+export const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id || req.user.id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+
+    if (!message.deletedFor) {
+      message.deletedFor = [];
+    }
+
+    if (!message.deletedFor.some(id => id.toString() === userId.toString())) {
+      message.deletedFor.push(userId);
+      await message.save();
+    }
+
+    res.json({ success: true, message: "Message deleted for you" });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

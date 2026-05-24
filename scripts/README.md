@@ -1,7 +1,7 @@
 # Card Shape Migration
 
 ## সমস্যা
-পুরনো blog গুলোতে `small`, `medium`, `large`, `wide`, `tall` এই shape values ছিল কিন্তু নতুন system এ `square-small`, `square-medium` ইত্যাদি ব্যবহার হচ্ছে।
+পুরনো codex গুলোতে `small`, `medium`, `large`, `wide`, `tall` এই shape values ছিল কিন্তু নতুন system এ `square-small`, `square-medium` ইত্যাদি ব্যবহার হচ্ছে।
 
 ## সমাধান
 এই migration script পুরনো values গুলো নতুন values এ convert করবে।
@@ -22,5 +22,5 @@ node scripts/migrateCardShapes.js
 
 ## নোট
 - Migration চালানোর আগে database backup নিন
-- Script automatically সব পুরনো blogs update করবে
+- Script automatically সব পুরনো codexs update করবে
 - Migration একবার চালালেই হবে

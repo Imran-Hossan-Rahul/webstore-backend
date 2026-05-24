@@ -1,7 +1,7 @@
 // Backend controller for public analytics endpoints
-import Template from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import User from "../models/User.model.js";
-import Blog from "../models/blog.model.js";
+import Codex from "../models/codex.model.js";
 import Sale from "../models/Sale.model.js";
 
 /**
@@ -17,15 +17,15 @@ export const getPublicViewsHistory = async (req, res) => {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      // Get views for this month from templates
+      // Get views for this month from artifacts
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
-      const templates = await Template.find({
+      const artifacts = await Artifact.find({
         createdAt: { $lte: endOfMonth }
       });
       
-      const totalViews = templates.reduce((sum, t) => sum + (t.viewsCount || 0), 0);
+      const totalViews = artifacts.reduce((sum, t) => sum + (t.viewsCount || 0), 0);
       const goal = Math.floor(totalViews * 1.2);
       
       months.push({
@@ -63,11 +63,11 @@ export const getPublicDownloadsHistory = async (req, res) => {
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
-      const templates = await Template.find({
+      const artifacts = await Artifact.find({
         createdAt: { $lte: endOfMonth }
       });
       
-      const totalDownloads = templates.reduce((sum, t) => sum + (t.downloadsCount || 0), 0);
+      const totalDownloads = artifacts.reduce((sum, t) => sum + (t.downloadsCount || 0), 0);
       const goal = Math.floor(totalDownloads * 1.15);
       
       months.push({
@@ -179,3 +179,4 @@ export const getPublicUsersHistory = async (req, res) => {
     });
   }
 };
+

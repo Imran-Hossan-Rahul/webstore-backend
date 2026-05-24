@@ -1,10 +1,10 @@
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import { likeQueue } from "../queues/likeQueue.js";
 
 
 export const toggleLike = async (req, res) => {
   try {
-    const { templateId } = req.params;
+    const { artifactId } = req.params;
 
     // ✅ Protect middleware use করলে JWT আগেই verify হয়েছে
     const userId = req.user?.id || null; // login user
@@ -16,15 +16,15 @@ export const toggleLike = async (req, res) => {
 
     const uniqueId = userId || visitorId;
 
-    const template = await ButtonTemplate.findById(templateId);
-    if (!template) {
-      return res.status(404).json({ message: "Template not found" });
+    const artifact = await Artifact.findById(artifactId);
+    if (!artifact) {
+      return res.status(404).json({ message: "Artifact not found" });
     }
 
-    const alreadyLiked = template.likedBy.includes(uniqueId);
+    const alreadyLiked = artifact.likedBy.includes(uniqueId);
 
     await likeQueue.add("like-task", {
-      templateId,
+      artifactId,
       userId: uniqueId,
       action: alreadyLiked ? "unlike" : "like",
     });
@@ -39,3 +39,5 @@ export const toggleLike = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+

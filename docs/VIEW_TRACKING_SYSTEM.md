@@ -5,11 +5,11 @@
 ### ১. Frontend থেকে View Count করার জন্য:
 
 ```javascript
-// যখন user template দেখবে, তখন এই API call করুন:
-POST /api/templates/view/:templateId
+// যখন user artifact দেখবে, তখন এই API call করুন:
+POST /api/artifacts/view/:artifactId
 
 // Example:
-fetch(`/api/templates/view/${templateId}`, {
+fetch(`/api/artifacts/view/${artifactId}`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' }
 })
@@ -18,27 +18,27 @@ fetch(`/api/templates/view/${templateId}`, {
 ### ২. Backend এ কী হয়:
 
 **Controller: `incrementView`**
-- ✅ Template আছে কিনা check করে
+- ✅ Artifact আছে কিনা check করে
 - ✅ User/IP এর cooldown check করে (60 seconds)
-- ✅ Redis এ view count increment করে (`views:count:templateId`)
+- ✅ Redis এ view count increment করে (`views:count:artifactId`)
 - ✅ Trending score update করে
 - ⚡ **Instant response** - user কে wait করতে হয় না
 
-### ৩. Worker এ কী হয়:
+### ৩. Craftsman এ কী হয়:
 
-**Worker: `viewSyncWorkerFixed.js`**
+**Craftsman: `viewSyncCraftsmanFixed.js`**
 - 🕐 প্রতি **2 মিনিট** পর পর চলে
 - 📊 Redis থেকে সব `views:count:*` keys নিয়ে আসে
 - 💾 MongoDB তে batch update করে
 - 🧹 Redis key delete করে
-- 📈 Template score update করে
+- 📈 Artifact score update করে
 
 ## 🔑 Redis Keys:
 
 ```
-views:cooldown:{templateId}:{actor}  → Cooldown tracking (60s TTL)
-views:count:{templateId}             → Pending view count
-templates:trending:zset              → Trending leaderboard
+views:cooldown:{artifactId}:{actor}  → Cooldown tracking (60s TTL)
+views:count:{artifactId}             → Pending view count
+artifacts:trending:zset              → Trending leaderboard
 ```
 
 ## ⚙️ Configuration:
@@ -52,20 +52,20 @@ REDIS_PORT=6379
 
 ## 🚀 Production এ চালানোর জন্য:
 
-### 1. Worker Start করুন:
+### 1. Craftsman Start করুন:
 ```bash
-node backend/workers/viewSyncWorkerFixed.js
+node backend/craftsmans/viewSyncCraftsmanFixed.js
 ```
 
 ### 2. PM2 দিয়ে চালাতে চাইলে:
 ```bash
-pm2 start backend/workers/viewSyncWorkerFixed.js --name "view-sync-worker"
+pm2 start backend/craftsmans/viewSyncCraftsmanFixed.js --name "view-sync-craftsman"
 pm2 save
 ```
 
 ## 📊 Performance Benefits:
 
-| Metric | Direct DB | Worker System |
+| Metric | Direct DB | Craftsman System |
 |--------|-----------|---------------|
 | Response Time | 50-200ms | 5-10ms |
 | DB Writes/sec | 1000+ | ~0.5 |
@@ -74,18 +74,18 @@ pm2 save
 
 ## 🔍 Monitoring:
 
-Worker logs দেখতে:
+Craftsman logs দেখতে:
 ```bash
 # Console logs
-✅ View counted in Redis for template {id}
-✅ Synced views: {templateId} += {count}
-✅ ViewSyncWorker finished: {n} templates synced
+✅ View counted in Redis for artifact {id}
+✅ Synced views: {artifactId} += {count}
+✅ ViewSyncCraftsman finished: {n} artifacts synced
 ```
 
 ## ⚠️ Important Notes:
 
 1. **Redis অবশ্যই চালু থাকতে হবে** - না হলে view count হবে না
-2. **Worker অবশ্যই চালু রাখুন** - না হলে MongoDB তে sync হবে না
+2. **Craftsman অবশ্যই চালু রাখুন** - না হলে MongoDB তে sync হবে না
 3. **Cooldown period**: একই user 60 সেকেন্ডের মধ্যে একাধিক view count করতে পারবে না
 4. **Data loss risk**: Redis crash হলে শেষ 2 মিনিটের data হারাতে পারে (minimal)
 
@@ -93,10 +93,10 @@ Worker logs দেখতে:
 
 **View count হচ্ছে না?**
 - Redis চালু আছে কিনা check করুন: `redis-cli ping`
-- Worker চালু আছে কিনা check করুন: `pm2 list`
+- Craftsman চালু আছে কিনা check করুন: `pm2 list`
 - Console logs দেখুন
 
 **MongoDB তে update হচ্ছে না?**
-- Worker logs check করুন
+- Craftsman logs check করুন
 - MongoDB connection check করুন
 - `views:count:*` keys আছে কিনা: `redis-cli keys "views:count:*"`

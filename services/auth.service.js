@@ -23,7 +23,8 @@ export const generateAccessToken = (user) => {
   const payload = {
     id: user._id.toString(),
     role: user.role,
-    hasCreatorAccount: user.hasCreatorAccount || false,
+    hasCraftsmanAccount: user.hasCraftsmanAccount || false,
+    isHost: user.isHost || false,
   };
   return jwt.sign(payload, JWT_ACCESS_SECRET, {
     expiresIn: JWT_ACCESS_EXPIRY,
@@ -157,3 +158,4 @@ export const revokeAllRefreshTokensForUser = async (userId) => {
     }
   );
 };
+

@@ -4,7 +4,7 @@ import {
   getNotifications,
   getUnreadCount,
   markAsRead,
-  markAllAsRead
+  markAllRead
 } from "../controllers/notificationController.js";
 
 const router = express.Router();
@@ -14,6 +14,6 @@ router.use(verifyAccessToken);
 router.get("/", getNotifications);
 router.get("/unread-count", getUnreadCount);
 router.put("/:id/read", markAsRead);
-router.put("/read-all", markAllAsRead);
+router.put("/read-all", markAllRead);
 
 export default router;

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import { MONGODB_CONNECTION_STRING } from "../config/index.js";
 
 mongoose.connect(MONGODB_CONNECTION_STRING)
@@ -8,19 +8,19 @@ mongoose.connect(MONGODB_CONNECTION_STRING)
 
 async function testAPI() {
   try {
-    const templates = await ButtonTemplate.find().select('viewHistory viewsCount title user');
+    const artifacts = await Artifact.find().select('viewHistory viewsCount title user');
     
-    console.log(`\n📊 Found ${templates.length} templates\n`);
+    console.log(`\n📊 Found ${artifacts.length} artifacts\n`);
     
     const viewsMap = new Map();
     
-    templates.forEach(template => {
-        console.log(`Template: ${template.title}`);
-        console.log(`  ViewsCount: ${template.viewsCount}`);
-        console.log(`  History entries: ${template.viewHistory?.length || 0}`);
+    artifacts.forEach(artifact => {
+        console.log(`Artifact: ${artifact.title}`);
+        console.log(`  ViewsCount: ${artifact.viewsCount}`);
+        console.log(`  History entries: ${artifact.viewHistory?.length || 0}`);
         
-        if (template.viewHistory && template.viewHistory.length > 0) {
-            template.viewHistory.forEach(entry => {
+        if (artifact.viewHistory && artifact.viewHistory.length > 0) {
+            artifact.viewHistory.forEach(entry => {
                 const dateKey = new Date(entry.date).toISOString().split('T')[0];
                 const existing = viewsMap.get(dateKey) || 0;
                 viewsMap.set(dateKey, existing + (entry.count || 0));
@@ -46,3 +46,5 @@ async function testAPI() {
 }
 
 testAPI();
+
+

@@ -14,7 +14,7 @@ export const getResources = async (req, res) => {
     if (sortBy === "liked") sort = { likesCount: -1 };
 
     const resources = await Resource.find(query)
-      .populate("creator", "name avatar")
+      .populate("craftsman", "name avatar")
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit))
@@ -39,7 +39,7 @@ export const createResource = async (req, res) => {
     const userId = req.user._id || req.user.id;
 
     const resource = await Resource.create({
-      creator: userId,
+      craftsman: userId,
       title,
       description,
       category,
@@ -52,11 +52,11 @@ export const createResource = async (req, res) => {
       price: price || 0
     });
 
-    await resource.populate("creator", "name avatar");
+    await resource.populate("craftsman", "name avatar");
 
     // Create activity
-    const Activity = (await import("../models/Activity.model.js")).default;
-    await Activity.create({
+    const SocialActivity = (await import("../models/SocialActivity.model.js")).default;
+    await SocialActivity.create({
       user: userId,
       type: "created_post",
       title: `shared a ${category} resource: ${title}`,

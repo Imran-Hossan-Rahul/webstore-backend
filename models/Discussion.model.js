@@ -16,7 +16,7 @@ const messageSchema = new mongoose.Schema({
 }, { _id: true });
 
 const discussionSchema = new mongoose.Schema({
-  creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  craftsman: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   topic: { type: String, required: true },
   description: { type: String },
   category: { 
@@ -37,7 +37,7 @@ discussionSchema.pre('save', function(next) {
   next();
 });
 
-discussionSchema.index({ creator: 1, createdAt: -1 });
+discussionSchema.index({ craftsman: 1, createdAt: -1 });
 discussionSchema.index({ isActive: 1, createdAt: -1 });
 discussionSchema.index({ messageCount: -1 });
 

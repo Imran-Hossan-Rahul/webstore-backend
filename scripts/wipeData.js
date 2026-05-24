@@ -4,13 +4,13 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 // Models
-import Activity from "../models/Activity.model.js";
+import SocialActivity from "../models/SocialActivity.model.js";
 import Challenge from "../models/Challenge.model.js";
 import Chat from "../models/Chat.model.js";
 import CollaborationRoom from "../models/CollaborationRoom.model.js";
 import Comment from "../models/Comment.model.js";
 import CommunityTask from "../models/CommunityTask.model.js";
-import CreatorProfile from "../models/CreatorProfile.model.js";
+import CraftsmanProfile from "../models/CraftsmanProfile.model.js";
 import Discussion from "../models/Discussion.model.js";
 import Event from "../models/Event.js";
 import Follow from "../models/Follow.model.js";
@@ -24,11 +24,11 @@ import RefreshToken from "../models/RefreshToken.model.js";
 import Resource from "../models/Resource.model.js";
 import Sale from "../models/Sale.model.js";
 import Session from "../models/Session.js";
-import Template from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import Transaction from "../models/Transaction.model.js";
 import User from "../models/User.model.js";
 import Visitor from "../models/Visitor.js";
-import Blog from "../models/blog.model.js";
+import Codex from "../models/codex.model.js";
 
 // Load env vars
 const __filename = fileURLToPath(import.meta.url);
@@ -51,7 +51,7 @@ const wipeData = async () => {
       { name: "CollaborationRoom", model: CollaborationRoom },
       { name: "Comment", model: Comment },
       { name: "CommunityTask", model: CommunityTask },
-      { name: "CreatorProfile", model: CreatorProfile },
+      { name: "CraftsmanProfile", model: CraftsmanProfile },
       { name: "Discussion", model: Discussion },
       { name: "Event", model: Event },
       { name: "Follow", model: Follow },
@@ -65,11 +65,11 @@ const wipeData = async () => {
       { name: "Resource", model: Resource },
       { name: "Sale", model: Sale },
       { name: "Session", model: Session },
-      { name: "Template", model: Template },
+      { name: "Artifact", model: Artifact },
       { name: "Transaction", model: Transaction },
       { name: "User", model: User },
       { name: "Visitor", model: Visitor },
-      { name: "Blog", model: Blog },
+      { name: "Codex", model: Codex },
     ];
 
     console.log("Starting data wipe...");
@@ -92,3 +92,4 @@ const wipeData = async () => {
 };
 
 wipeData();
+

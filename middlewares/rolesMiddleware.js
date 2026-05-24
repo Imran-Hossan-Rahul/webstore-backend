@@ -1,10 +1,10 @@
 // middlewares/rolesMiddleware.js
 
 /**
- * Middleware to require creator account
- * Checks if user has an active creator account
+ * Middleware to require craftsman account
+ * Checks if user has an active craftsman account
  */
-export const requireCreatorAccount = async (req, res, next) => {
+export const requireCraftsmanAccount = async (req, res, next) => {
   try {
     const user = req.user;
     if (!user) {
@@ -14,33 +14,33 @@ export const requireCreatorAccount = async (req, res, next) => {
       });
     }
 
-    // Check if user has creator account
-    if (!user.hasCreatorAccount) {
+    // Check if user has craftsman account
+    if (!user.hasCraftsmanAccount) {
       return res.status(403).json({
         success: false,
-        message: "Creator account required. Please create a creator account first.",
+        message: "Craftsman account required. Please create a craftsman account first.",
       });
     }
 
-    // Optionally verify creator profile exists and is active
-    const CreatorProfile = (await import("../models/CreatorProfile.model.js")).default;
-    const creatorProfile = await CreatorProfile.findOne({
+    // Optionally verify craftsman profile exists and is active
+    const CraftsmanProfile = (await import("../models/CraftsmanProfile.model.js")).default;
+    const craftsmanProfile = await CraftsmanProfile.findOne({
       userId: user._id,
       isActive: true,
     });
 
-    if (!creatorProfile) {
+    if (!craftsmanProfile) {
       return res.status(403).json({
         success: false,
-        message: "Creator profile not found or inactive",
+        message: "Craftsman profile not found or inactive",
       });
     }
 
-    // Attach creator profile to request for easy access
-    req.creatorProfile = creatorProfile;
+    // Attach craftsman profile to request for easy access
+    req.craftsmanProfile = craftsmanProfile;
     next();
   } catch (error) {
-    console.error("Creator account check error:", error);
+    console.error("Craftsman account check error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -50,7 +50,7 @@ export const requireCreatorAccount = async (req, res, next) => {
 
 /**
  * Legacy middleware for backward compatibility
- * @deprecated Use requireCreatorAccount instead
+ * @deprecated Use requireCraftsmanAccount instead
  */
 export const allowRoles = (...allowedRoles) => {
   return (req, res, next) => {
@@ -60,12 +60,12 @@ export const allowRoles = (...allowedRoles) => {
     }
 
     // Map old roles to new system
-    if (allowedRoles.includes("freelancer") || allowedRoles.includes("engineer")) {
-      return requireCreatorAccount(req, res, next);
+    if (allowedRoles.includes("craftsman") || allowedRoles.includes("engineer")) {
+      return requireCraftsmanAccount(req, res, next);
     }
 
     // All authenticated users are platform users
-    if (allowedRoles.includes("client") || allowedRoles.includes("hirer")) {
+    if (allowedRoles.includes("patron") || allowedRoles.includes("hirer")) {
       return next();
     }
 
@@ -74,3 +74,5 @@ export const allowRoles = (...allowedRoles) => {
       .json({ success: false, message: "Access denied for this route" });
   };
 };
+
+

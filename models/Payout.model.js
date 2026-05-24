@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const payoutSchema = new mongoose.Schema(
   {
-    // Creator receiving payout
-    creator: {
+    // Craftsman receiving payout
+    craftsman: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -19,7 +19,7 @@ const payoutSchema = new mongoose.Schema(
 
     currency: {
       type: String,
-      default: "USD",
+      default: "TKNS",
       uppercase: true,
     },
 
@@ -34,15 +34,8 @@ const payoutSchema = new mongoose.Schema(
     // Payout method
     payoutMethod: {
       type: String,
-      enum: ["payoneer", "bank_transfer", "paypal", "stripe"],
-      default: "payoneer",
-    },
-
-    // Payoneer email
-    payoneerEmail: {
-      type: String,
-      lowercase: true,
-      trim: true,
+      enum: ["internal_wallet"],
+      default: "internal_wallet",
     },
 
     // Bank details (if bank transfer)
@@ -99,7 +92,7 @@ const payoutSchema = new mongoose.Schema(
 );
 
 // Indexes
-payoutSchema.index({ creator: 1, status: 1, createdAt: -1 });
+payoutSchema.index({ craftsman: 1, status: 1, createdAt: -1 });
 payoutSchema.index({ status: 1, createdAt: -1 });
 
 // Virtual for transaction count

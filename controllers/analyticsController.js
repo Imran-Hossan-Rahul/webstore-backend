@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
 import Visitor from "../models/Visitor.js";
 import Session from "../models/Session.js";
 import Event from "../models/Event.js";
-import ButtonTemplate from "../models/Template.model.js";
+import Artifact from "../models/Artifact.model.js";
 import mongoose from "mongoose";
 
 /**
@@ -343,17 +343,17 @@ export const getAllCountries = async (req, res) => {
  * ----------------------------
  */
 export const getEngineerViewsHistory = asyncHandler(async (req, res) => {
-    const templates = await ButtonTemplate.find({ user: req.user._id }).select('viewHistory viewsCount title');
+    const artifacts = await Artifact.find({ user: req.user._id }).select('viewHistory viewsCount title');
     
-    if (!templates.length) {
+    if (!artifacts.length) {
         return res.status(200).json({ success: true, data: [] });
     }
 
     const viewsMap = new Map();
     
-    templates.forEach(template => {
-        if (template.viewHistory && template.viewHistory.length > 0) {
-            template.viewHistory.forEach(entry => {
+    artifacts.forEach(artifact => {
+        if (artifact.viewHistory && artifact.viewHistory.length > 0) {
+            artifact.viewHistory.forEach(entry => {
                 const dateKey = new Date(entry.date).toISOString().split('T')[0];
                 const existing = viewsMap.get(dateKey) || 0;
                 viewsMap.set(dateKey, existing + (entry.count || 0));
@@ -373,18 +373,18 @@ export const getEngineerViewsHistory = asyncHandler(async (req, res) => {
 
 /**
  * ----------------------------
- * Get Engineer's Template History (Real Data)
+ * Get Engineer's Artifact History (Real Data)
  * ----------------------------
  */
 export const getEngineerHistory = asyncHandler(async (req, res) => {
-    // 1. Find engineer's templates
-    const templates = await ButtonTemplate.find({ user: req.user._id }).select('slug');
+    // 1. Find engineer's artifacts
+    const artifacts = await Artifact.find({ user: req.user._id }).select('slug');
     
-    if (!templates.length) {
+    if (!artifacts.length) {
         return res.status(200).json({ success: true, data: [] });
     }
 
-    const slugs = templates.map(t => t.slug);
+    const slugs = artifacts.map(t => t.slug);
     
     // 2. Define date range (e.g., last 6 months)
     const sixMonthsAgo = new Date();
@@ -396,7 +396,7 @@ export const getEngineerHistory = asyncHandler(async (req, res) => {
             $match: {
                 eventType: "pageview",
                 timestamp: { $gte: sixMonthsAgo },
-                // Match pages that contain any of the user's template slugs
+                // Match pages that contain any of the user's artifact slugs
                 // Note: This regex assumes slug is unique enough to not match unwanted paths
                 page: { $in: slugs.map(slug => new RegExp(`/${slug}`, 'i')) } 
             }
@@ -428,3 +428,5 @@ export const getEngineerHistory = asyncHandler(async (req, res) => {
 
     res.status(200).json({ success: true, data: formattedData });
 });
+
+

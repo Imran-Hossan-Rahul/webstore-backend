@@ -1,4 +1,4 @@
 import "./server.js";
-import "./workers/index.js";
+import "./craftsmen/index.js";
 
-console.log("🚀 Running both API Server and Background Workers concurrently for Render Free Tier!");
+console.log("🚀 Running both API Server and Background Craftsmans concurrently for Render Free Tier!");

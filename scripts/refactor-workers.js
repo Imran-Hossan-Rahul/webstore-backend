@@ -4,17 +4,17 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const workersDir = path.join(__dirname, '../workers');
+const craftsmansDir = path.join(__dirname, '../craftsmans');
 
-const files = fs.readdirSync(workersDir).filter(f => f.endsWith('.js') && f !== 'index.js');
+const files = fs.readdirSync(craftsmansDir).filter(f => f.endsWith('.js') && f !== 'index.js');
 
 for (const file of files) {
-  const filePath = path.join(workersDir, file);
+  const filePath = path.join(craftsmansDir, file);
   let content = fs.readFileSync(filePath, 'utf8');
 
   // 1. Remove QueueEvents from import
-  content = content.replace(/import\s*\{\s*Worker\s*,\s*QueueEvents\s*\}\s*from\s*"bullmq";/g, 'import { Worker } from "bullmq";');
-  content = content.replace(/import\s*\{\s*Worker\s*,\s*QueueEvents\s*\}\s*from\s*'bullmq';/g, "import { Worker } from 'bullmq';");
+  content = content.replace(/import\s*\{\s*Craftsman\s*,\s*QueueEvents\s*\}\s*from\s*"bullmq";/g, 'import { Craftsman } from "bullmq";');
+  content = content.replace(/import\s*\{\s*Craftsman\s*,\s*QueueEvents\s*\}\s*from\s*'bullmq';/g, "import { Craftsman } from 'bullmq';");
 
   // 2. Change Redis import
   content = content.replace(/import\s+Redis\s+from\s+["']ioredis["'];/g, 'import redis from "../config/redis.js";');
@@ -45,7 +45,7 @@ for (const file of files) {
   content = content.replace(/queueEvents\.on\([\s\S]*?\);\r?\n/g, '');
 
 
-  // 6. Update Worker instantiation
+  // 6. Update Craftsman instantiation
   content = content.replace(/\{\s*connection\s*,/g, '{ connection: redis,');
   content = content.replace(/\{\s*connection\s*\}/g, '{ connection: redis }');
   content = content.replace(/\{\s*connection:\s*redis\s*,\s*connection/g, '{ connection: redis'); // catch accidental duplicates
@@ -58,4 +58,4 @@ for (const file of files) {
 
   fs.writeFileSync(filePath, content, 'utf8');
 }
-console.log('Done refactoring workers!');
+console.log('Done refactoring craftsmans!');

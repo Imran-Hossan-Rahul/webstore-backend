@@ -1,4 +1,4 @@
-import Activity from "../models/Activity.model.js";
+import SocialActivity from "../models/SocialActivity.model.js";
 import CommunityTask from "../models/CommunityTask.model.js";
 import CollaborationRoom from "../models/CollaborationRoom.model.js";
 import Discussion from "../models/Discussion.model.js";
@@ -13,21 +13,23 @@ import { getIO } from "../utils/socketManager.js";
  */
 export const getActivities = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 20, userId } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const activities = await Activity.find({ isActive: true })
+    const query = { isActive: true };
+    if (userId) query.user = userId;
+
+    const activities = await Activity.find(query)
       .populate("user", "name profilePicture username")
-      .populate("projectId", "title")
+      .populate("devlogId", "title")
       .populate("taskId", "title")
       .populate("roomId", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit)
+      .limit(parseInt(limit))
       .lean();
 
-    const total = await Activity.countDocuments({ isActive: true });
+    const total = await Activity.countDocuments(query);
 
     res.status(200).json({
       success: true,
@@ -52,7 +54,7 @@ export const getActivities = async (req, res) => {
  */
 export const updateActivity = async (req, res) => {
   try {
-    const { type, title, description, projectId, taskId, roomId, metadata } = req.body;
+    const { type, title, description, devlogId, taskId, roomId, metadata } = req.body;
     const userId = req.user._id || req.user.id;
 
     const activity = await Activity.create({
@@ -60,7 +62,7 @@ export const updateActivity = async (req, res) => {
       type,
       title,
       description,
-      projectId,
+      devlogId,
       taskId,
       roomId,
       metadata
@@ -104,7 +106,7 @@ export const getTasks = async (req, res) => {
     if (tags) query.tags = { $in: tags.split(",") };
 
     const tasks = await CommunityTask.find(query)
-      .populate("creator", "name profilePicture username")
+      .populate("craftsman", "name profilePicture username")
       .populate("collaborators", "name profilePicture username")
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
@@ -144,7 +146,7 @@ export const createTask = async (req, res) => {
     }
 
     const task = await CommunityTask.create({
-      creator: userId,
+      craftsman: userId,
       title,
       description,
       category,
@@ -154,7 +156,7 @@ export const createTask = async (req, res) => {
       bounty: bounty || {}
     });
 
-    await task.populate("creator", "name profilePicture username");
+    await task.populate("craftsman", "name profilePicture username");
 
     // Create activity
     await Activity.create({
@@ -230,17 +232,17 @@ export const getRooms = async (req, res) => {
       $or: [
         { isPublic: true },
         { participants: userId },
-        { creator: userId }
+        { craftsman: userId }
       ]
     };
 
     if (type) query.type = type;
 
     const rooms = await CollaborationRoom.find(query)
-      .populate("creator", "name profilePicture username")
+      .populate("craftsman", "name profilePicture username")
       .populate("participants", "name profilePicture username")
       .populate("relatedTask", "title status")
-      .populate("relatedProject", "title")
+      .populate("relatedDevlog", "title")
       .sort({ lastActivity: -1 })
       .skip(skip)
       .limit(limit)
@@ -271,22 +273,22 @@ export const getRooms = async (req, res) => {
  */
 export const createRoom = async (req, res) => {
   try {
-    const { name, description, type, relatedTask, relatedProject, isPublic, tags } = req.body;
+    const { name, description, type, relatedTask, relatedDevlog, isPublic, tags } = req.body;
     const userId = req.user._id || req.user.id;
 
     const room = await CollaborationRoom.create({
       name,
       description,
-      creator: userId,
-      participants: [userId], // creator is automatically a participant
+      craftsman: userId,
+      participants: [userId], // craftsman is automatically a participant
       type: type || "general",
       relatedTask,
-      relatedProject,
+      relatedDevlog,
       isPublic: isPublic !== undefined ? isPublic : true,
       tags: tags || []
     });
 
-    await room.populate("creator", "name profilePicture username");
+    await room.populate("craftsman", "name profilePicture username");
 
     res.status(201).json({
       success: true,
@@ -309,23 +311,26 @@ export const joinRoom = async (req, res) => {
     const { roomId } = req.params;
     const userId = req.user._id || req.user.id;
 
-    const room = await CollaborationRoom.findById(roomId);
+    let room = await CollaborationRoom.findById(roomId);
     if (!room) {
       return res.status(404).json({ success: false, message: "Room not found" });
     }
 
-    if (room.participants.includes(userId)) {
-      return res.status(400).json({ success: false, message: "Already a participant" });
+    const result = await CollaborationRoom.updateOne(
+      { _id: roomId, participants: { $ne: userId }, "participants.maxParticipants": { $exists: false } }, // Simple check
+      { $addToSet: { participants: userId } }
+    );
+
+    if (result.matchedCount === 0) {
+      // Re-fetch to check specific reason if needed, or just return generic
+      const checkRoom = await CollaborationRoom.findById(roomId);
+      if (!checkRoom) return res.status(404).json({ success: false, message: "Room not found" });
+      if (checkRoom.participants.includes(userId)) return res.status(400).json({ success: false, message: "Already a participant" });
+      if (checkRoom.participants.length >= checkRoom.maxParticipants) return res.status(400).json({ success: false, message: "Room is full" });
     }
 
-    if (room.participants.length >= room.maxParticipants) {
-      return res.status(400).json({ success: false, message: "Room is full" });
-    }
-
-    room.participants.push(userId);
-    await room.save();
-
-    await room.populate("participants", "name profilePicture username");
+    room = await CollaborationRoom.findById(roomId)
+      .populate("participants", "name profilePicture username");
 
     res.status(200).json({
       success: true,
@@ -349,7 +354,7 @@ export const createDiscussion = async (req, res) => {
     const userId = req.user._id || req.user.id;
 
     const discussion = await Discussion.create({
-      creator: userId,
+      craftsman: userId,
       topic,
       description,
       category: category || "general",
@@ -357,7 +362,7 @@ export const createDiscussion = async (req, res) => {
       participants: [userId]
     });
 
-    await discussion.populate("creator", "name profilePicture username");
+    await discussion.populate("craftsman", "name profilePicture username");
 
     // Create activity
     await Activity.create({
@@ -386,7 +391,7 @@ export const getDiscussions = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const discussions = await Discussion.find({ isActive: true })
-      .populate("creator", "name profilePicture username")
+      .populate("craftsman", "name profilePicture username")
       .populate("participants", "name profilePicture username")
       .sort({ isPinned: -1, createdAt: -1 })
       .skip(skip)
@@ -422,24 +427,25 @@ export const addMessage = async (req, res) => {
     }
 
     const messageData = { author: userId, content: content || "", replyTo: replyTo || null };
-    discussion.messages.push(messageData);
-    
-    // Update parent message replies array
-    if (replyTo) {
-      const parentMsg = discussion.messages.id(replyTo);
-      if (parentMsg) {
-        if (!parentMsg.replies) parentMsg.replies = [];
-        parentMsg.replies.push(discussion.messages[discussion.messages.length - 1]._id);
+    await Discussion.updateOne(
+      { _id: id },
+      { 
+        $push: { messages: messageData },
+        $addToSet: { participants: userId }
       }
-    }
-    
-    if (!discussion.participants.includes(userId)) {
-      discussion.participants.push(userId);
-    }
-    
-    await discussion.save();
+    );
 
-    const message = discussion.messages[discussion.messages.length - 1];
+    // Fetch the added message for response and subsequent logic
+    const updatedDiscussion = await Discussion.findById(id).select('messages');
+    const message = updatedDiscussion.messages[updatedDiscussion.messages.length - 1];
+
+    // Update parent message replies array (Atomic)
+    if (replyTo) {
+      await Discussion.updateOne(
+        { _id: id, "messages._id": replyTo },
+        { $addToSet: { "messages.$.replies": message._id } }
+      );
+    }
 
     // Queue media uploads if files exist
     if (files && files.length > 0) {
@@ -465,10 +471,11 @@ export const addMessage = async (req, res) => {
     // Populate author for response
     await Discussion.populate(message, { path: 'author', select: 'name profilePicture username' });
 
-    // Mark as read by author
-    if (!message.readBy) message.readBy = [];
-    message.readBy.push(userId);
-    await discussion.save();
+    // Mark as read by author (Atomic)
+    await Discussion.updateOne(
+      { _id: id, "messages._id": message._id },
+      { $addToSet: { "messages.$.readBy": userId } }
+    );
 
     // Emit real-time message to all users in discussion room
     const io = getIO();
@@ -510,12 +517,19 @@ export const getMessages = async (req, res) => {
 
     const totalMessages = await Discussion.findById(id).select('messageCount');
 
+    // 🚀 O(n) Optimization: Create a map for fast message lookup
+    const messageMap = new Map(discussion.messages.map(m => [m._id.toString(), m]));
+
     // Calculate unread reply counts for each message
     const messagesWithUnread = discussion.messages.map(msg => {
-      const unreadReplies = msg.replies ? msg.replies.filter(replyId => {
-        const reply = discussion.messages.find(m => m._id.toString() === replyId.toString());
-        return reply && (!reply.readBy || !reply.readBy.some(uid => uid.toString() === userId.toString()));
-      }).length : 0;
+      let unreadReplies = 0;
+      if (msg.replies && msg.replies.length > 0) {
+        msg.replies.forEach(replyId => {
+          const reply = messageMap.get(replyId.toString());
+          const isUnread = reply && (!reply.readBy || !reply.readBy.some(uid => uid.toString() === userId.toString()));
+          if (isUnread) unreadReplies++;
+        });
+      }
       
       return {
         ...msg,
@@ -556,11 +570,10 @@ export const markMessageAsRead = async (req, res) => {
       return res.status(404).json({ success: false, message: "Message not found" });
     }
 
-    if (!message.readBy) message.readBy = [];
-    if (!message.readBy.some(uid => uid.toString() === userId.toString())) {
-      message.readBy.push(userId);
-      await discussion.save();
-    }
+    await Discussion.updateOne(
+      { _id: id, "messages._id": messageId },
+      { $addToSet: { "messages.$.readBy": userId } }
+    );
 
     res.status(200).json({ success: true, message: "Message marked as read" });
   } catch (error) {
@@ -568,3 +581,5 @@ export const markMessageAsRead = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to mark message as read" });
   }
 };
+
+

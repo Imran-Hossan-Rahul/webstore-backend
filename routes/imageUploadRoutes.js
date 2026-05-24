@@ -5,13 +5,19 @@ import {
   upload,
   uploadUserProfilePicture,
   uploadUserCoverPicture,
-  uploadCreatorProfilePicture,
-  uploadCreatorCoverPicture,
+  uploadCraftsmanProfilePicture,
+  uploadCraftsmanCoverPicture,
   getUploadStatus,
   uploadPostImage,
+  uploadChallengeScreenshot,
+  uploadImage,
 } from "../controllers/imageUploadController.js";
+import { uploadLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
+
+// Apply limiter to all POST routes in this router
+router.use(uploadLimiter);
 
 // User image uploads
 router.post(
@@ -28,19 +34,19 @@ router.post(
   uploadUserCoverPicture
 );
 
-// Creator image uploads
+// Craftsman image uploads
 router.post(
-  "/creator/profile-picture",
+  "/craftsman/profile-picture",
   protect,
   upload.single("image"),
-  uploadCreatorProfilePicture
+  uploadCraftsmanProfilePicture
 );
 
 router.post(
-  "/creator/cover-picture",
+  "/craftsman/cover-picture",
   protect,
   upload.single("image"),
-  uploadCreatorCoverPicture
+  uploadCraftsmanCoverPicture
 );
 
 router.post(
@@ -48,6 +54,20 @@ router.post(
   protect,
   upload.single("image"),
   uploadPostImage
+);
+
+router.post(
+  "/challenge-screenshot",
+  protect,
+  upload.single("image"),
+  uploadChallengeScreenshot
+);
+
+router.post(
+  "/image",
+  protect,
+  upload.single("image"),
+  uploadImage
 );
 
 router.get("/status/:jobId", protect, getUploadStatus);

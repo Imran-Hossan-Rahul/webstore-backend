@@ -5,28 +5,24 @@ import { JWT_ACCESS_SECRET } from "../config/index.js";
 
 export const verifyAccessToken = (req, res, next) => {
   try {
-    // Normalize header (case-insensitive)
-    const authHeader =
-      req.headers["authorization"] || req.headers["Authorization"];
-    if (!authHeader) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Access token missing" });
+    let token;
+    // 🔹 1. Authorization header
+    const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+    
+    // 🔹 2. Cookie (Priority for million-dollar security)
+    if (!token && req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
     }
 
-    // Ensure format is "Bearer <token>"
-    if (!authHeader.startsWith("Bearer ")) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid token format" });
-    }
-
-    const token = authHeader.split(" ")[1];
     if (!token) {
       return res
         .status(401)
         .json({ success: false, message: "Access token missing" });
     }
+
 
     // Verify JWT token with explicit algorithm
     const payload = jwt.verify(token, JWT_ACCESS_SECRET, {

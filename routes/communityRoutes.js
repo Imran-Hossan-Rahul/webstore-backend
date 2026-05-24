@@ -22,11 +22,12 @@ import {
   likeResource
 } from "../controllers/resourceController.js";
 import { verifyAccessToken } from "../middlewares/verifyAccessToken.js";
+import { optionalProtect } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 // Activity routes
-router.get("/activities", verifyAccessToken, getActivities);
+router.get("/activities", optionalProtect, getActivities);
 router.put("/activity", verifyAccessToken, updateActivity);
 
 // Task routes

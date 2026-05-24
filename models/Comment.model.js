@@ -8,9 +8,9 @@ const commentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 1000,
     },
-    blog: {
+    codex: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Blog",
+      ref: "Codex",
       required: false, // Changed from true
       index: true,
     },
@@ -20,9 +20,9 @@ const commentSchema = new mongoose.Schema(
         required: false,
         index: true,
     },
-    template: {
+    artifact: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "ButtonTemplate",
+        ref: "Artifact",
         required: false,
         index: true,
     },
@@ -59,6 +59,8 @@ const commentSchema = new mongoose.Schema(
   }
 );
 
-commentSchema.index({ blog: 1, createdAt: -1 });
+commentSchema.index({ codex: 1, createdAt: -1 });
 
 export default mongoose.models.Comment || mongoose.model("Comment", commentSchema);
+
+

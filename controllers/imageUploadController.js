@@ -3,9 +3,9 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import User from "../models/User.model.js";
-import CreatorProfile from "../models/CreatorProfile.model.js";
+import CraftsmanProfile from "../models/CraftsmanProfile.model.js";
 import { profileImageQueue } from "../queues/index.js";
-import { postImageQueue } from "../queues/postImageQueue.js";
+import { devlogImageQueue } from "../queues/devlogImageQueue.js";
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -52,12 +52,12 @@ export const uploadUserProfilePicture = async (req, res) => {
     }
 
     const userId = req.user._id;
+    const filePath = req.file.path;
 
     // Verify file exists before queueing
-    const fs = await import('fs');
-    const fileExists = fs.existsSync(req.file.path);
-    
-    if (!fileExists) {
+    try {
+      await fs.access(filePath);
+    } catch {
       return res.status(500).json({
         success: false,
         message: "File upload failed - file not saved",
@@ -120,11 +120,13 @@ export const uploadUserCoverPicture = async (req, res) => {
 
     const userId = req.user._id;
 
+    const filePath = req.file.path;
+
     // Add job to queue
     const job = await profileImageQueue.add(
       "process-cover-image",
       {
-        filePath: req.file.path,
+        filePath,
         type: "cover",
         userId: userId.toString(),
         targetModel: "user",
@@ -162,10 +164,10 @@ export const uploadUserCoverPicture = async (req, res) => {
 };
 
 /**
- * Upload creator profile picture
- * @route POST /api/v1/upload/creator/profile-picture
+ * Upload craftsman profile picture
+ * @route POST /api/v1/upload/craftsman/profile-picture
  */
-export const uploadCreatorProfilePicture = async (req, res) => {
+export const uploadCraftsmanProfilePicture = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -183,7 +185,7 @@ export const uploadCreatorProfilePicture = async (req, res) => {
         filePath: req.file.path,
         type: "profile",
         userId: userId.toString(),
-        targetModel: "creator",
+        targetModel: "craftsman",
       },
       {
         removeOnComplete: { age: 3600 }, // Keep for 1 hour so frontend can poll status
@@ -200,7 +202,7 @@ export const uploadCreatorProfilePicture = async (req, res) => {
     // Return immediate response
     res.status(202).json({
       success: true,
-      message: "Creator profile picture upload queued successfully",
+      message: "Craftsman profile picture upload queued successfully",
       data: {
         jobId: job.id,
         status: "processing",
@@ -208,20 +210,20 @@ export const uploadCreatorProfilePicture = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Upload creator profile picture error:", error);
+    console.error("Upload craftsman profile picture error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to queue creator profile picture upload",
+      message: "Failed to queue craftsman profile picture upload",
       error: error.message,
     });
   }
 };
 
 /**
- * Upload creator cover picture
- * @route POST /api/v1/upload/creator/cover-picture
+ * Upload craftsman cover picture
+ * @route POST /api/v1/upload/craftsman/cover-picture
  */
-export const uploadCreatorCoverPicture = async (req, res) => {
+export const uploadCraftsmanCoverPicture = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -239,7 +241,7 @@ export const uploadCreatorCoverPicture = async (req, res) => {
         filePath: req.file.path,
         type: "cover",
         userId: userId.toString(),
-        targetModel: "creator",
+        targetModel: "craftsman",
       },
       {
         removeOnComplete: { age: 3600 }, // Keep for 1 hour so frontend can poll status
@@ -256,7 +258,7 @@ export const uploadCreatorCoverPicture = async (req, res) => {
     // Return immediate response
     res.status(202).json({
       success: true,
-      message: "Creator cover picture upload queued successfully",
+      message: "Craftsman cover picture upload queued successfully",
       data: {
         jobId: job.id,
         status: "processing",
@@ -264,10 +266,10 @@ export const uploadCreatorCoverPicture = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Upload creator cover picture error:", error);
+    console.error("Upload craftsman cover picture error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to queue creator cover picture upload",
+      message: "Failed to queue craftsman cover picture upload",
       error: error.message,
     });
   }
@@ -323,24 +325,32 @@ export const uploadPostImage = async (req, res) => {
     const userId = req.user._id;
     // We expect postId if we are attaching to an existing post, 
     // BUT for new posts, we might upload FIRST, get a Temp URL, and then Create Post.
-    // However, the user specifically said "image url post er model e add hoi" via worker.
-    // This implies the worker needs the Post ID to update it.
+    // However, the user specifically said "image url post er model e add hoi" via craftsman.
+    // This implies the craftsman needs the Post ID to update it.
     // So this endpoint MUST be called APTER the post is created? 
     // OR we pass a "tempPostId" if we want to get fancy, but let's stick to:
     // 1. User creates Post (text only or empty images). Returns Post ID.
-    // 2. User uploads images with Post ID. Worker processes and updates Post.
+    // 2. User uploads images with Post ID. Craftsman processes and updates Post.
     
     // WAIT, if the user picks images in the UI, they expect them to be there when they click "Post".
-    // If we want "Post Image Worker" to update the model, we can:
-    // A) Create Post -> Get ID -> Upload Images with ID -> Worker updates Post.
+    // If we want "Post Image Craftsman" to update the model, we can:
+    // A) Create Post -> Get ID -> Upload Images with ID -> Craftsman updates Post.
     // This seems to match the requirement "image url post er model e add hoi".
 
     const { postId } = req.body;
     if (!postId) {
-        return res.status(400).json({ success: false, message: "Post ID is required" });
+        // Return temp path for later processing (useful for Challenges or new Posts)
+        return res.status(200).json({
+            success: true,
+            message: "Image uploaded to temp storage",
+            data: {
+                tempPath: req.file.path,
+                originalName: req.file.originalname
+            }
+        });
     }
 
-    const job = await postImageQueue.add(
+    const job = await devlogImageQueue.add(
       "post-image-upload",
       {
         filePath: req.file.path,
@@ -362,5 +372,51 @@ export const uploadPostImage = async (req, res) => {
   } catch (error) {
     console.error("Upload post image error:", error);
     res.status(500).json({ success: false, message: "Failed to queue post image upload" });
+  }
+};
+
+/**
+ * Upload challenge screenshot (Temp)
+ * @route POST /api/v1/upload/challenge-screenshot
+ */
+export const uploadChallengeScreenshot = async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+      }
+  
+      res.status(200).json({
+        success: true,
+        message: "Screenshot uploaded to temp storage",
+        data: {
+          tempPath: req.file.path,
+          originalName: req.file.originalname
+        }
+      });
+    } catch (error) {
+      console.error("Challenge screenshot upload error:", error);
+      res.status(500).json({ success: false, message: "Failed to upload screenshot" });
+    }
+  };
+/**
+ * Generic image upload
+ * @route POST /api/v1/upload/image
+ */
+export const uploadImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    // Return the path so frontend can use it
+    // In a real app, this might be a Cloudinary/S3 URL
+    res.status(200).json({
+      success: true,
+      message: "Image uploaded successfully",
+      url: `/${req.file.path.replace(/\\/g, "/")}`
+    });
+  } catch (error) {
+    console.error("Generic image upload error:", error);
+    res.status(500).json({ success: false, message: "Failed to upload image" });
   }
 };

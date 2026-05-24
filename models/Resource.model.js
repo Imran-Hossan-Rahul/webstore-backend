@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const resourceSchema = new mongoose.Schema({
-  creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  craftsman: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: {
@@ -10,7 +10,7 @@ const resourceSchema = new mongoose.Schema({
       "design",
       "code",
       "ui-kit",
-      "template",
+      "artifact",
       "icon",
       "font",
       "mockup",
@@ -43,10 +43,11 @@ const resourceSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-resourceSchema.index({ creator: 1, createdAt: -1 });
+resourceSchema.index({ craftsman: 1, createdAt: -1 });
 resourceSchema.index({ category: 1, isActive: 1 });
 resourceSchema.index({ tags: 1 });
 resourceSchema.index({ downloads: -1 });
 resourceSchema.index({ likesCount: -1 });
 
 export default mongoose.model("Resource", resourceSchema);
+

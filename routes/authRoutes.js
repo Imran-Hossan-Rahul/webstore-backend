@@ -8,7 +8,12 @@ import {
   refreshTokenHandler,
   logoutHandler,
   getUserCount,
-  getCreators,
+  getCraftsmen,
+  verifyEmail,
+  resendVerificationEmail,
+  verify2FALogin,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/authController.js";
 import { validate } from "../middlewares/validate.js";
 import { registerSchema, loginSchema } from "../validation/authValidation.js";
@@ -75,15 +80,15 @@ router.post(
   auditWrapper(loginUser)
 );
 
-// Refresh token with rotation (centralized cookie handling)
 router.post(
-  "/refresh-token",
-  auditWrapper(async (req, res, next) => {
-    const accessToken = await refreshTokenHandler(req, res, next);
-    // cookie set is already handled inside refreshTokenHandler
-    return res.status(200).json({ success: true, accessToken });
-  })
+  "/verify-2fa-login",
+  authLimiter,
+  auditWrapper(verify2FALogin)
 );
+
+// Refresh token with rotation
+// 🔒 FIX: refreshTokenHandler sends its own complete response — DO NOT wrap with additional res.json()
+router.post("/refresh-token", auditWrapper(refreshTokenHandler));
 
 router.post(
   "/admin/create-user",
@@ -101,7 +106,16 @@ router.delete(
 
 router.get("/count", getUserCount);
 
-router.get("/creators", getCreators);
+router.get("/craftsmen", getCraftsmen);
+
+// Email Verification
+router.get("/verify-email", auditWrapper(verifyEmail));
+router.post("/resend-verification", protect, authLimiter, auditWrapper(resendVerificationEmail));
+
+// Password Recovery
+router.post("/forgot-password", authLimiter, auditWrapper(forgotPassword));
+router.post("/reset-password", authLimiter, auditWrapper(resetPassword));
+
 
 
 router.post("/logout", auditWrapper(logoutHandler));

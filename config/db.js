@@ -33,8 +33,9 @@ async function connectWithRetry(retries = 5, delay = 2000) {
     await mongoose.connect(MongoDB, {
       maxPoolSize: 20,
       minPoolSize: 5,
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 30000, // Increased from 10s to 30s
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000, // Added explicit connect timeout
       retryWrites: true,
       w: "majority",
     });

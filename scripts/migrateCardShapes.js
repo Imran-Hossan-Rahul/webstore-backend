@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Blog from "../models/blog.model.js";
+import Codex from "../models/codex.model.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -19,28 +19,28 @@ async function migrateCardShapes() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
-    // Find all blogs with old cardShape values
+    // Find all codex with old cardShape values
     const oldShapes = Object.keys(SHAPE_MIGRATION_MAP);
-    const blogsToUpdate = await Blog.find({
+    const codexToUpdate = await Codex.find({
       cardShape: { $in: oldShapes }
     });
 
-    console.log(`📊 Found ${blogsToUpdate.length} blogs to migrate`);
+    console.log(`📊 Found ${codexToUpdate.length} codex to migrate`);
 
     let updated = 0;
-    for (const blog of blogsToUpdate) {
-      const oldShape = blog.cardShape;
+    for (const codex of codexToUpdate) {
+      const oldShape = codex.cardShape;
       const newShape = SHAPE_MIGRATION_MAP[oldShape];
       
       if (newShape) {
-        blog.cardShape = newShape;
-        await blog.save({ validateBeforeSave: false });
-        console.log(`✅ Updated blog "${blog.title}" from "${oldShape}" to "${newShape}"`);
+        codex.cardShape = newShape;
+        await codex.save({ validateBeforeSave: false });
+        console.log(`✅ Updated codex "${codex.title}" from "${oldShape}" to "${newShape}"`);
         updated++;
       }
     }
 
-    console.log(`\n✅ Migration complete! Updated ${updated} blogs`);
+    console.log(`\n✅ Migration complete! Updated ${updated} codex`);
     process.exit(0);
   } catch (error) {
     console.error("❌ Migration failed:", error);
@@ -49,3 +49,5 @@ async function migrateCardShapes() {
 }
 
 migrateCardShapes();
+
+

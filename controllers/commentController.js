@@ -1,12 +1,13 @@
 import Comment from "../models/Comment.model.js";
 import Post from "../models/Post.model.js";
-import Blog from "../models/blog.model.js";
-import ButtonTemplate from "../models/Template.model.js";
+import Codex from "../models/codex.model.js";
+import Artifact from "../models/Artifact.model.js";
 import logger from "../utils/logger.js";
 import mongoose from "mongoose";
+import GamificationService from "../services/GamificationService.js";
 
 /**
- * @desc    Add a comment to a post or blog (Synchronous)
+ * @desc    Add a comment to a post or codex (Synchronous)
  * @route   POST /api/v1/comments/:postId
  * @access  Private
  */
@@ -20,9 +21,9 @@ export const addComment = async (req, res) => {
       return res.status(400).json({ success: false, message: "Comment content is required" });
     }
 
-    // Determine if postId belongs to a Blog, Template, or Post
-    const isBlog = await Blog.exists({ _id: postId, isDeleted: false });
-    const isTemplate = !isBlog && await ButtonTemplate.exists({ _id: postId, isActive: true });
+    // Determine if postId belongs to a Codex, Artifact, or Post
+    const isCodex = await Codex.exists({ _id: postId, isDeleted: false });
+    const isArtifact = !isCodex && await Artifact.exists({ _id: postId, isActive: true });
     
     const commentData = {
         author: userId,
@@ -32,10 +33,10 @@ export const addComment = async (req, res) => {
         parentComment: parentComment || null,
     };
     
-    if (isBlog) {
-        commentData.blog = postId;
-    } else if (isTemplate) {
-        commentData.template = postId;
+    if (isCodex) {
+        commentData.codex = postId;
+    } else if (isArtifact) {
+        commentData.artifact = postId;
     } else {
         commentData.post = postId;
     }
@@ -44,11 +45,20 @@ export const addComment = async (req, res) => {
     const newComment = await Comment.create(commentData);
 
     // Update parent model count + array reference
-    const Model = isBlog ? Blog : isTemplate ? ButtonTemplate : Post;
-    await Model.findByIdAndUpdate(postId, {
+    const Model = isCodex ? Codex : isArtifact ? Artifact : Post;
+    const parentDoc = await Model.findByIdAndUpdate(postId, {
         $inc: { commentsCount: 1 },
         $push: { comments: newComment._id }
     });
+
+    // Award XP to the content owner for receiving a comment
+    // Ensure we don't reward the user for commenting on their own post
+    const ownerId = parentDoc?.author || parentDoc?.user;
+    if (ownerId && ownerId.toString() !== userId.toString()) {
+        await GamificationService.awardRewards(ownerId, 'GET_COMMENT').catch(err => 
+            logger.error("Failed to award GET_COMMENT rewards:", err)
+        );
+    }
 
     // Populate for response
     await newComment.populate("author", "name avatar username profilePicture");
@@ -68,7 +78,7 @@ export const addComment = async (req, res) => {
 };
 
 /**
- * @desc    Get comments for a post or blog
+ * @desc    Get comments for a post or codex
  * @route   GET /api/v1/comments/:postId
  * @access  Public
  */
@@ -79,8 +89,8 @@ export const getComments = async (req, res) => {
     const limit = parseInt(req.query.limit) || 300;
     const skip = (page - 1) * limit;
 
-    // Query matches blog, template, and post comments
-    const query = { $or: [{ post: postId }, { blog: postId }, { template: postId }] };
+    // Query matches codex, artifact, and post comments
+    const query = { $or: [{ post: postId }, { codex: postId }, { artifact: postId }] };
 
     const comments = await Comment.find(query)
       .sort({ createdAt: -1 })
@@ -157,3 +167,5 @@ export const toggleHelpful = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to update helpful status" });
   }
 };
+
+

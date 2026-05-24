@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Blog from "../models/blog.model.js";
+import Codex from "../models/codex.model.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -9,16 +9,16 @@ async function checkCardShapes() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("✅ Connected to MongoDB\n");
 
-    const blogs = await Blog.find({}).select('title slug cardShape').lean();
+    const codex = await Codex.find({}).select('title slug cardShape').lean();
     
-    console.log(`📊 Total blogs: ${blogs.length}\n`);
+    console.log(`📊 Total codex: ${codex.length}\n`);
     console.log("Current cardShape values in database:");
     console.log("=====================================");
     
-    blogs.forEach((blog, index) => {
-      console.log(`${index + 1}. "${blog.title}"`);
-      console.log(`   Slug: ${blog.slug}`);
-      console.log(`   CardShape: ${blog.cardShape || 'NOT SET'}\n`);
+    codex.forEach((codex, index) => {
+      console.log(`${index + 1}. "${codex.title}"`);
+      console.log(`   Slug: ${codex.slug}`);
+      console.log(`   CardShape: ${codex.cardShape || 'NOT SET'}\n`);
     });
 
     process.exit(0);
@@ -29,3 +29,5 @@ async function checkCardShapes() {
 }
 
 checkCardShapes();
+
+

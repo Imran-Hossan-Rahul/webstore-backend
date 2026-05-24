@@ -9,11 +9,11 @@ import AdmZip from 'adm-zip';
 
 // Allowed file extensions
 const ALLOWED_PREVIEW_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm'];
-const ALLOWED_PROJECT_EXTENSIONS = ['.zip', '.json', '.html', '.js', '.css'];
+const ALLOWED_DEVLOG_EXTENSIONS = ['.zip', '.json', '.html', '.js', '.css'];
 
 // Max file sizes (in bytes)
 const MAX_PREVIEW_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PROJECT_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_DEVLOG_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Dangerous file patterns in zip
 const DANGEROUS_PATTERNS = [
@@ -70,25 +70,25 @@ export function validatePreviewFile(file) {
 }
 
 /**
- * Validate project file (zip/code files)
+ * Validate devlog file (zip/code files)
  */
-export function validateProjectFile(file) {
+export function validateDevlogFile(file) {
     const errors = [];
     
     if (!file) {
-        errors.push('Project file is required');
+        errors.push('Devlog file is required');
         return { valid: false, errors };
     }
 
     // Check file size
-    if (file.size > MAX_PROJECT_SIZE) {
-        errors.push(`Project file too large. Max size: ${MAX_PROJECT_SIZE / (1024 * 1024)}MB`);
+    if (file.size > MAX_DEVLOG_SIZE) {
+        errors.push(`Devlog file too large. Max size: ${MAX_DEVLOG_SIZE / (1024 * 1024)}MB`);
     }
 
     // Check extension
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!ALLOWED_PROJECT_EXTENSIONS.includes(ext)) {
-        errors.push(`Invalid project file type. Allowed: ${ALLOWED_PROJECT_EXTENSIONS.join(', ')}`);
+    if (!ALLOWED_DEVLOG_EXTENSIONS.includes(ext)) {
+        errors.push(`Invalid devlog file type. Allowed: ${ALLOWED_DEVLOG_EXTENSIONS.join(', ')}`);
     }
 
     return {
@@ -181,24 +181,24 @@ export function validateUploadedFiles(files) {
         allErrors.push('Preview file is required');
     }
 
-    // Validate project file
-    if (files.projectFile && files.projectFile[0]) {
-        const projectValidation = validateProjectFile(files.projectFile[0]);
-        if (!projectValidation.valid) {
-            allErrors.push(...projectValidation.errors);
+    // Validate devlog file
+    if (files.devlogFile && files.devlogFile[0]) {
+        const devlogValidation = validateDevlogFile(files.devlogFile[0]);
+        if (!devlogValidation.valid) {
+            allErrors.push(...devlogValidation.errors);
         }
 
         // Scan ZIP if it's a zip file
-        const projectFile = files.projectFile[0];
-        if (projectFile.path && path.extname(projectFile.originalname).toLowerCase() === '.zip') {
-            const scanResult = scanZipFile(projectFile.path);
+        const devlogFile = files.devlogFile[0];
+        if (devlogFile.path && path.extname(devlogFile.originalname).toLowerCase() === '.zip') {
+            const scanResult = scanZipFile(devlogFile.path);
             if (!scanResult.valid) {
                 allErrors.push(...scanResult.errors);
             }
             allWarnings.push(...scanResult.warnings);
         }
     } else {
-        allErrors.push('Project file is required');
+        allErrors.push('Devlog file is required');
     }
 
     return {
@@ -207,3 +207,4 @@ export function validateUploadedFiles(files) {
         warnings: allWarnings
     };
 }
+
