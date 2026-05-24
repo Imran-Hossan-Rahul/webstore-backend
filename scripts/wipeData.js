@@ -28,7 +28,7 @@ import Artifact from "../models/Artifact.model.js";
 import Transaction from "../models/Transaction.model.js";
 import User from "../models/User.model.js";
 import Visitor from "../models/Visitor.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 
 // Load env vars
 const __filename = fileURLToPath(import.meta.url);

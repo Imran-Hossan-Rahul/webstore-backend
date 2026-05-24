@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import Job from "../models/Job.model.js";
 import Contract from "../models/Contract.model.js";
 import Message from "../models/Message.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 
 dotenv.config();
 

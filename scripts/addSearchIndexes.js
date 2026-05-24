@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Job from "../models/Job.model.js";
 
 dotenv.config();

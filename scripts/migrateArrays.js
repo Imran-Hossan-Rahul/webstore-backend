@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import User from "../models/User.model.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Interaction from "../models/Interaction.model.js";
 import AuditLog from "../models/AuditLog.model.js";
 

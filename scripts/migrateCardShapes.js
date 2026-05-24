@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import dotenv from "dotenv";
 
 dotenv.config();
