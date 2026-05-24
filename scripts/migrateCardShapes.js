@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import Codex from "../models/Codex.model.js";
 import dotenv from "dotenv";
 
@@ -15,9 +15,9 @@ const SHAPE_MIGRATION_MAP = {
 
 async function migrateCardShapes() {
   try {
-    console.log("🔄 Connecting to MongoDB...");
+    console.log("ðŸ”„ Connecting to MongoDB...");
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Connected to MongoDB");
+    console.log("âœ… Connected to MongoDB");
 
     // Find all codex with old cardShape values
     const oldShapes = Object.keys(SHAPE_MIGRATION_MAP);
@@ -25,7 +25,7 @@ async function migrateCardShapes() {
       cardShape: { $in: oldShapes }
     });
 
-    console.log(`📊 Found ${codexToUpdate.length} codex to migrate`);
+    console.log(`ðŸ“Š Found ${codexToUpdate.length} codex to migrate`);
 
     let updated = 0;
     for (const codex of codexToUpdate) {
@@ -35,15 +35,15 @@ async function migrateCardShapes() {
       if (newShape) {
         codex.cardShape = newShape;
         await codex.save({ validateBeforeSave: false });
-        console.log(`✅ Updated codex "${codex.title}" from "${oldShape}" to "${newShape}"`);
+        console.log(`âœ… Updated codex "${codex.title}" from "${oldShape}" to "${newShape}"`);
         updated++;
       }
     }
 
-    console.log(`\n✅ Migration complete! Updated ${updated} codex`);
+    console.log(`\nâœ… Migration complete! Updated ${updated} codex`);
     process.exit(0);
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    console.error("âŒ Migration failed:", error);
     process.exit(1);
   }
 }

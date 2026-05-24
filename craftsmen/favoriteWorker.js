@@ -1,9 +1,9 @@
-import { Worker as Craftsman } from "bullmq";
+﻿import { Worker as Craftsman } from "bullmq";
 import redis from "../config/redis.js";
 import mongoose from "mongoose";
 import Post from "../models/Post.model.js";
 import User from "../models/User.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
 import Job from "../models/Job.model.js";
 import Challenge from "../models/Challenge.model.js";
@@ -75,5 +75,5 @@ const craftsman = new Craftsman(
   { connection: redis, concurrency: 20 } 
 );
 
-console.log("🚀 Favorite Craftsman Running...");
+console.log("ðŸš€ Favorite Craftsman Running...");
 

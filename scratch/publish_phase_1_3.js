@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import dotenv from "dotenv";
 import fs from "fs";
 import Codex from "../models/Codex.model.js";
@@ -15,7 +15,7 @@ async function publishAll() {
       throw new Error("MONGODB_URI is not set in environment variables!");
     }
     await mongoose.connect(uri);
-    console.log("✅ Database Connected!");
+    console.log("âœ… Database Connected!");
 
     // Read clean topics from topics.json
     const topics = JSON.parse(fs.readFileSync("scratch/topics.json", "utf8"));
@@ -27,7 +27,7 @@ async function publishAll() {
       // Check if it already exists by title
       const exists = await Codex.exists({ title: t.title });
       if (exists) {
-        console.log(`⚠️ Skip: Already exists in database!`);
+        console.log(`âš ï¸ Skip: Already exists in database!`);
         continue;
       }
 
@@ -46,14 +46,14 @@ async function publishAll() {
 
       // Save document (pre-save middleware generates slug & excerpt automatically)
       await codex.save();
-      console.log(`🎉 Successfully published: "${t.title}"`);
-      console.log(`🔗 Slug generated: "${codex.slug}"`);
+      console.log(`ðŸŽ‰ Successfully published: "${t.title}"`);
+      console.log(`ðŸ”— Slug generated: "${codex.slug}"`);
     }
 
-    console.log("\n✅ All topics in Phase 1.3 successfully published!");
+    console.log("\nâœ… All topics in Phase 1.3 successfully published!");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Fatal publish error:", err);
+    console.error("âŒ Fatal publish error:", err);
     process.exit(1);
   }
 }

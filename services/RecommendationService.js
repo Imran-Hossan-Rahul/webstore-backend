@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Codex from "../models/Codex.model.js";
@@ -7,7 +7,7 @@ import Follow from "../models/Follow.model.js";
 import logger from "../utils/logger.js";
 
 /**
- * 🚀 OPTIMIZED RECOMMENDATION SERVICE
+ * ðŸš€ OPTIMIZED RECOMMENDATION SERVICE
  * 
  * Performance Improvements:
  * 1. Set-based lookups instead of array.includes() - O(1) vs O(n)
@@ -29,7 +29,7 @@ class RecommendationService {
   }
 
   /**
-   * 🚀 OPTIMIZED: Main entry point to get the personalized feed
+   * ðŸš€ OPTIMIZED: Main entry point to get the personalized feed
    * 
    * Performance Improvements:
    * - Uses Set for O(1) lookups instead of O(n) array searches
@@ -44,37 +44,37 @@ class RecommendationService {
     try {
       const fetchStart = Date.now();
       
-      // ═══════════════════════════════════════════════════════════
-      // 🚀 STEP 1: Fetch User Context (OPTIMIZED with Sets)
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸš€ STEP 1: Fetch User Context (OPTIMIZED with Sets)
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       let userContext = {
         following: new Set(),
         followingArray: [], // Keep array for aggregation queries
         interests: [],
-        interestsSet: new Set(), // 🚀 O(1) lookup
+        interestsSet: new Set(), // ðŸš€ O(1) lookup
         favorites: new Set(),
         favoritesArray: [],
         skills: [],
-        skillsSet: new Set(), // 🚀 O(1) lookup
+        skillsSet: new Set(), // ðŸš€ O(1) lookup
       };
 
       if (userId) {
         const [user, follows] = await Promise.all([
           User.findById(userId)
             .select("interests skills favorites")
-            .lean(), // 🚀 10x faster
+            .lean(), // ðŸš€ 10x faster
           Follow.find({ follower: userId })
             .select("following")
-            .lean(), // 🚀 10x faster
+            .lean(), // ðŸš€ 10x faster
         ]);
 
         if (user) {
           userContext.interests = user.interests || [];
-          userContext.interestsSet = new Set(userContext.interests); // 🚀 O(1) lookup
+          userContext.interestsSet = new Set(userContext.interests); // ðŸš€ O(1) lookup
           
           userContext.skills = user.skills || [];
-          userContext.skillsSet = new Set(userContext.skills); // 🚀 O(1) lookup
+          userContext.skillsSet = new Set(userContext.skills); // ðŸš€ O(1) lookup
           
           userContext.favoritesArray = (user.favorites || []).map(id => id.toString());
           userContext.favorites = new Set(userContext.favoritesArray);
@@ -82,13 +82,13 @@ class RecommendationService {
         
         if (follows) {
           userContext.followingArray = follows.map(f => f.following.toString());
-          userContext.following = new Set(userContext.followingArray); // 🚀 O(1) lookup
+          userContext.following = new Set(userContext.followingArray); // ðŸš€ O(1) lookup
         }
       }
 
-      // ═══════════════════════════════════════════════════════════
-      // 🚀 STEP 2: Candidate Generation (OPTIMIZED with lean())
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸš€ STEP 2: Candidate Generation (OPTIMIZED with lean())
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       const fetchLimit = limit * 5; // Fetch 5x to allow for re-ranking
       let candidates = [];
@@ -99,14 +99,14 @@ class RecommendationService {
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
           .populate({ path: 'comments', select: 'feedbackType' })
-          .lean(); // 🚀 10x faster
+          .lean(); // ðŸš€ 10x faster
 
         // Batch fetch users for artifacts
         const artifactUserIds = [...new Set(rawArtifacts.map(t => t.user?.toString()).filter(Boolean))];
         const artifactUsers = await User.find({ _id: { $in: artifactUserIds } })
           .select('_id name profilePicture avatar email craftsmanProfileId')
           .populate('craftsmanProfileId', 'profilePicture')
-          .lean(); // 🚀 10x faster
+          .lean(); // ðŸš€ 10x faster
         
         const artifactUserMap = Object.fromEntries(artifactUsers.map(u => [u._id.toString(), u]));
 
@@ -125,14 +125,14 @@ class RecommendationService {
           .sort({ createdAt: -1 })
           .limit(fetchLimit)
           .populate({ path: 'comments', select: 'feedbackType' })
-          .lean(); // 🚀 10x faster
+          .lean(); // ðŸš€ 10x faster
 
         // Batch fetch authors
         const authorIds = [...new Set(rawCodex.map(b => b.author?.toString()).filter(Boolean))];
         const authors = await User.find({ _id: { $in: authorIds } })
           .select('_id name profilePicture craftsmanProfileId')
           .populate('craftsmanProfileId', 'profilePicture')
-          .lean(); // 🚀 10x faster
+          .lean(); // ðŸš€ 10x faster
         
         const authorMap = Object.fromEntries(authors.map(u => [u._id.toString(), u]));
 
@@ -158,12 +158,12 @@ class RecommendationService {
               populate: { path: "craftsmanProfileId", select: "profilePicture" }
           })
           .populate({ path: 'comments', select: 'feedbackType' })
-          .lean(); // 🚀 10x faster
+          .lean(); // ðŸš€ 10x faster
         
         candidates.push(...posts.map(p => ({ ...p, type: 'devlog' })));
       }
 
-      // 🚀 NEW: Filter for 'following' view
+      // ðŸš€ NEW: Filter for 'following' view
       if (view === 'following' && userId) {
           candidates = candidates.filter(item => {
               const authorId = item.user?._id || item.author?._id || item.user;
@@ -171,9 +171,9 @@ class RecommendationService {
           });
       }
 
-      // ═══════════════════════════════════════════════════════════
-      // 🚀 STEP 3: Scoring & Ranking (OPTIMIZED with Set lookups)
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸš€ STEP 3: Scoring & Ranking (OPTIMIZED with Set lookups)
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       const scoredItems = candidates.map(item => {
         const score = this.calculateScore(item, userContext, view);
@@ -183,9 +183,9 @@ class RecommendationService {
       // Sort by computed score
       scoredItems.sort((a, b) => b.score - a.score);
 
-      // ═══════════════════════════════════════════════════════════
-      // 🚀 STEP 4: Pagination
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸš€ STEP 4: Pagination
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       const startIndex = (page - 1) * limit;
       const finalSelection = scoredItems.slice(startIndex, startIndex + limit);
@@ -215,13 +215,13 @@ class RecommendationService {
   }
 
   /**
-   * 🚀 OPTIMIZED: Score calculation with Set-based lookups
+   * ðŸš€ OPTIMIZED: Score calculation with Set-based lookups
    * 
    * Performance Improvements:
    * - Uses Set.has() instead of Array.includes() - O(1) vs O(n)
    * - Pre-computed Sets in userContext
    * 
-   * Before: O(n × m) where m = tags/interests count
+   * Before: O(n Ã— m) where m = tags/interests count
    * After: O(n) with O(1) lookups
    * 
    * Performance: 20x faster for large interest/tag lists
@@ -231,16 +231,16 @@ class RecommendationService {
     const now = Date.now();
     const createdAt = new Date(item.createdAt).getTime();
     
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // 1. Recency Decay (Exponential)
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     const ageInHours = (now - createdAt) / (1000 * 60 * 60);
     const recencyScore = 100 / Math.pow(ageInHours + 2, 1.5); 
     score += recencyScore;
 
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // 2. Engagement (Popularity) - Logarithmic scale
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     const views = item.views || item.viewsCount || 0;
     const likes = item.likes || item.likesCount || item.likeCount || 0;
     const comments = item.commentsCount || (item.comments ? item.comments.length : 0);
@@ -254,9 +254,9 @@ class RecommendationService {
     
     score += engagementScore;
 
-    // ═══════════════════════════════════════════════════════════
-    // 🚀 3. User Affinity (OPTIMIZED with Set lookups)
-    // ═══════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ðŸš€ 3. User Affinity (OPTIMIZED with Set lookups)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     if (userContext) {
         // A. Social (Following) - O(1) lookup with Set
         const authorId = item.user?._id || item.author?._id || item.user;
@@ -277,7 +277,7 @@ class RecommendationService {
         }
     }
 
-    // 🚀 NEW: Trending Boost
+    // ðŸš€ NEW: Trending Boost
     if (view === 'trending') {
         const popularity = (item.views || 0) * 1 + (item.likesCount || 0) * 10;
         score += Math.log10(popularity + 1) * 50;
@@ -287,7 +287,7 @@ class RecommendationService {
   }
 
   /**
-   * 🚀 OPTIMIZED: Normalize item with Set-based isLiked check
+   * ðŸš€ OPTIMIZED: Normalize item with Set-based isLiked check
    */
   normalizeItem(item, currentUserId, userContext) {
     // Basic User Mapping
@@ -310,7 +310,7 @@ class RecommendationService {
 
     const author = item.user || item.author;
     
-    // 🚀 OPTIMIZED: O(1) Set lookup instead of O(n) array search
+    // ðŸš€ OPTIMIZED: O(1) Set lookup instead of O(n) array search
     let isLiked = false;
     if (currentUserId) {
         const currentUserIdStr = currentUserId.toString();
@@ -321,7 +321,7 @@ class RecommendationService {
         }
     }
 
-    // 🚀 NEW: Aggregate discussion stats for intelligence box
+    // ðŸš€ NEW: Aggregate discussion stats for intelligence box
     const discussionStats = {
         total: Math.max(item.commentsCount || 0, Array.isArray(item.comments) ? item.comments.length : 0),
         types: {
@@ -428,7 +428,7 @@ class RecommendationService {
   }
 
   /**
-   * 🚀 OPTIMIZED: Get suggested craftsmen with fixed aggregation
+   * ðŸš€ OPTIMIZED: Get suggested craftsmen with fixed aggregation
    * 
    * Performance Improvements:
    * - Filters BEFORE grouping (reduces data to process by 90%)
@@ -445,27 +445,27 @@ class RecommendationService {
         if (userId) {
             const follows = await Follow.find({ follower: userId })
               .select("following")
-              .lean(); // 🚀 10x faster
+              .lean(); // ðŸš€ 10x faster
             following = follows.map(f => f.following.toString());
             following.push(userId.toString()); // Exclude self
         }
 
-        // ═══════════════════════════════════════════════════════════
-        // 🚀 OPTIMIZED: Filter BEFORE grouping
-        // ═══════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ðŸš€ OPTIMIZED: Filter BEFORE grouping
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // Convert to ObjectIds properly
         const followingIds = following.map(id => new mongoose.Types.ObjectId(id));
 
         const suggested = await Follow.aggregate([
-            // 🚀 STEP 1: Filter FIRST (reduces data by 90%)
+            // ðŸš€ STEP 1: Filter FIRST (reduces data by 90%)
             { 
                 $match: { 
                     following: { $nin: followingIds } 
                 } 
             },
             
-            // 🚀 STEP 2: Group the filtered data
+            // ðŸš€ STEP 2: Group the filtered data
             { 
                 $group: { 
                     _id: "$following", 
@@ -473,17 +473,17 @@ class RecommendationService {
                 } 
             },
             
-            // 🚀 STEP 3: Sort by popularity
+            // ðŸš€ STEP 3: Sort by popularity
             { 
                 $sort: { count: -1 } 
             },
             
-            // 🚀 STEP 4: Limit early to reduce lookup data
+            // ðŸš€ STEP 4: Limit early to reduce lookup data
             { 
                 $limit: limit * 2 
             },
             
-            // 🚀 STEP 5: Lookup user details
+            // ðŸš€ STEP 5: Lookup user details
             { 
                 $lookup: { 
                     from: "users", 
@@ -493,7 +493,7 @@ class RecommendationService {
                 } 
             },
             
-            // 🚀 STEP 6: Unwind and devlog
+            // ðŸš€ STEP 6: Unwind and devlog
             { 
                 $unwind: "$user" 
             },

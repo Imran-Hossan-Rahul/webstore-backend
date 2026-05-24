@@ -1,9 +1,9 @@
-import { Worker as Craftsman } from "bullmq";
+﻿import { Worker as Craftsman } from "bullmq";
 import redis from "../config/redis.js";
 import mongoose from "mongoose";
 import Comment from "../models/Comment.model.js";
 import Post from "../models/Post.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
 
 
@@ -84,6 +84,6 @@ const craftsman = new Craftsman(
   { connection: redis, concurrency: 30 }
 );
 
-console.log("🚀 Post Comment Craftsman Running...");
+console.log("ðŸš€ Post Comment Craftsman Running...");
 
 

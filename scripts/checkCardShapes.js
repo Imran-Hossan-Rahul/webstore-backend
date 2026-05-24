@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import Codex from "../models/Codex.model.js";
 import dotenv from "dotenv";
 
@@ -7,11 +7,11 @@ dotenv.config();
 async function checkCardShapes() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Connected to MongoDB\n");
+    console.log("âœ… Connected to MongoDB\n");
 
     const codex = await Codex.find({}).select('title slug cardShape').lean();
     
-    console.log(`📊 Total codex: ${codex.length}\n`);
+    console.log(`ðŸ“Š Total codex: ${codex.length}\n`);
     console.log("Current cardShape values in database:");
     console.log("=====================================");
     
@@ -23,7 +23,7 @@ async function checkCardShapes() {
 
     process.exit(0);
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("âŒ Error:", error);
     process.exit(1);
   }
 }

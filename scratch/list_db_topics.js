@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Codex from "../models/Codex.model.js";
 
@@ -9,7 +9,7 @@ const uri = process.env.MONGODB_URI;
 async function checkDB() {
   try {
     await mongoose.connect(uri);
-    console.log("✅ DB Connected!");
+    console.log("âœ… DB Connected!");
     const count = await Codex.countDocuments({});
     console.log(`Total Codex articles in DB: ${count}`);
     const codexes = await Codex.find({}, 'title slug category').sort({ createdAt: 1 });

@@ -1,8 +1,8 @@
-import { Worker as Craftsman } from "bullmq";
+﻿import { Worker as Craftsman } from "bullmq";
 import redis from "../config/redis.js";
 import mongoose from "mongoose";
 import Post from "../models/Post.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
 
 
@@ -36,25 +36,25 @@ const craftsman = new Craftsman(
                 $inc: { sharesCount: 1 },
                 $push: { shareHistory: shareData }
             });
-            console.log(`✅ Post Shared: ${itemId}`);
+            console.log(`âœ… Post Shared: ${itemId}`);
         } else if (type === 'codex') {
             await Codex.findByIdAndUpdate(itemId, {
                 $inc: { sharesCount: 1 },
                 $push: { shareHistory: shareData }
             });
-            console.log(`✅ Codex Shared: ${itemId}`);
+            console.log(`âœ… Codex Shared: ${itemId}`);
         } else if (type === 'artifact') {
             // Check if model has shareHistory (added in previous session)
             await Artifact.findByIdAndUpdate(itemId, {
                 $inc: { sharesCount: 1 },
                 $push: { shareHistory: shareData }
             });
-            console.log(`✅ Artifact Shared: ${itemId}`);
+            console.log(`âœ… Artifact Shared: ${itemId}`);
         } else {
-            console.warn(`⚠️ Unknown type for share job: ${type}`);
+            console.warn(`âš ï¸ Unknown type for share job: ${type}`);
         }
     } catch (err) {
-        console.error(`❌ Share processing failed for ${type} ${itemId}:`, err);
+        console.error(`âŒ Share processing failed for ${type} ${itemId}:`, err);
         throw err;
     }
 
@@ -63,6 +63,6 @@ const craftsman = new Craftsman(
   { connection: redis, concurrency: 50 }
 );
 
-console.log("🚀 Share Craftsman Running...");
+console.log("ðŸš€ Share Craftsman Running...");
 
 

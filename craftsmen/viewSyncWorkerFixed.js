@@ -1,16 +1,16 @@
-// backend/craftsmen/viewSyncWorkerFixed.js
+﻿// backend/craftsmen/viewSyncWorkerFixed.js
 import mongoose from "mongoose";
 import cron from "node-cron";
 import redis from "../config/redis.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Post from "../models/Post.model.js";
 import Interaction from "../models/Interaction.model.js";
 
 const SYNC_INTERVAL = process.env.VIEWSYNC_CRON || "*/2 * * * *"; // every 2 min
 
 cron.schedule(SYNC_INTERVAL, async () => {
-  console.log("🔄 ViewSyncWorker cron started...");
+  console.log("ðŸ”„ ViewSyncWorker cron started...");
   try {
     const keys = [];
     let cursor = "0";
@@ -21,7 +21,7 @@ cron.schedule(SYNC_INTERVAL, async () => {
     } while (cursor !== "0");
 
     if (keys.length === 0) {
-      console.log("ℹ️ No view counts to sync");
+      console.log("â„¹ï¸ No view counts to sync");
       return;
     }
 
@@ -106,7 +106,7 @@ cron.schedule(SYNC_INTERVAL, async () => {
 
           await redis.del(key);
         } catch (err) {
-          console.error(`❌ ${typeLabel} processing failed ${id}:`, err.message);
+          console.error(`âŒ ${typeLabel} processing failed ${id}:`, err.message);
         }
       }
     };
@@ -118,17 +118,17 @@ cron.schedule(SYNC_INTERVAL, async () => {
     // Execute bulk operations
     if (interactionsToInsert.length > 0) {
       await Interaction.insertMany(interactionsToInsert, { ordered: false });
-      console.log(`✅ Inserted ${interactionsToInsert.length} interactions`);
+      console.log(`âœ… Inserted ${interactionsToInsert.length} interactions`);
     }
 
     if (updates.length > 0) {
       await Promise.all(updates);
-      console.log(`✅ Updated ${updates.length} document counters`);
+      console.log(`âœ… Updated ${updates.length} document counters`);
     }
 
   } catch (err) {
-    console.error("❌ ViewSyncWorker cron error:", err);
+    console.error("âŒ ViewSyncWorker cron error:", err);
   }
 });
 
-console.log("🚀 ViewSyncWorker Started - Syncing every 2 minutes (Relational Schema)");
+console.log("ðŸš€ ViewSyncWorker Started - Syncing every 2 minutes (Relational Schema)");

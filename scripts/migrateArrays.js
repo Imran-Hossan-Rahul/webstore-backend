@@ -1,4 +1,4 @@
-// backend/scripts/migrateArrays.js
+﻿// backend/scripts/migrateArrays.js
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import User from "../models/User.model.js";
@@ -14,14 +14,14 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/websto
 async function migrate() {
   try {
     await mongoose.connect(MONGODB_URI);
-    console.log("🚀 Connected to MongoDB for migration");
+    console.log("ðŸš€ Connected to MongoDB for migration");
 
     // 1. Migrate User Followers (Note: This requires a 'Follow' model if not already present, 
     // but the plan says we use a dedicated collection. Let's check if Follow model exists.)
     // Actually, I'll focus on the telemetry first as it's the biggest bloat.
 
     // 2. Migrate Artifact Telemetry
-    console.log("📦 Migrating Artifact history...");
+    console.log("ðŸ“¦ Migrating Artifact history...");
     const artifacts = await Artifact.find({ 
       $or: [
         { viewHistory: { $exists: true, $not: { $size: 0 } } },
@@ -84,16 +84,16 @@ async function migrate() {
 
     if (artifactInteractions.length > 0) {
       await Interaction.insertMany(artifactInteractions, { ordered: false });
-      console.log(`✅ Migrated ${artifactInteractions.length} artifact interactions`);
+      console.log(`âœ… Migrated ${artifactInteractions.length} artifact interactions`);
     }
 
     if (artifactAuditLogs.length > 0) {
       await AuditLog.insertMany(artifactAuditLogs, { ordered: false });
-      console.log(`✅ Migrated ${artifactAuditLogs.length} artifact audit logs`);
+      console.log(`âœ… Migrated ${artifactAuditLogs.length} artifact audit logs`);
     }
 
     // 3. Migrate Codex Telemetry
-    console.log("📦 Migrating Codex history...");
+    console.log("ðŸ“¦ Migrating Codex history...");
     const codexes = await Codex.find({});
     const codexInteractions = [];
 
@@ -118,11 +118,11 @@ async function migrate() {
 
     if (codexInteractions.length > 0) {
       await Interaction.insertMany(codexInteractions, { ordered: false });
-      console.log(`✅ Migrated ${codexInteractions.length} codex interactions`);
+      console.log(`âœ… Migrated ${codexInteractions.length} codex interactions`);
     }
 
     // 4. Migrate User Audit Logs & Sessions
-    console.log("📦 Migrating User history...");
+    console.log("ðŸ“¦ Migrating User history...");
     const users = await User.find({
       $or: [
         { auditLogs: { $exists: true } },
@@ -161,13 +161,13 @@ async function migrate() {
 
     if (userAuditLogs.length > 0) {
       await AuditLog.insertMany(userAuditLogs, { ordered: false });
-      console.log(`✅ Migrated ${userAuditLogs.length} user events`);
+      console.log(`âœ… Migrated ${userAuditLogs.length} user events`);
     }
 
-    console.log("🏁 Migration completed successfully!");
+    console.log("ðŸ Migration completed successfully!");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Migration failed:", err);
+    console.error("âŒ Migration failed:", err);
     process.exit(1);
   }
 }

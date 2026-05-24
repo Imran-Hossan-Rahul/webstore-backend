@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Job from "../models/Job.model.js";
 import Contract from "../models/Contract.model.js";

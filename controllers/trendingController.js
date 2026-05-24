@@ -1,4 +1,4 @@
-import Post from '../models/Post.model.js';
+﻿import Post from '../models/Post.model.js';
 
 /**
  * @desc    Get trending tags from posts (Dynamic Algorithm)

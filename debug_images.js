@@ -1,7 +1,7 @@
-
+﻿
 import mongoose from "mongoose";
 import { connectToDatabase } from "./config/db.js";
-import Codex from "./models/codex.model.js";
+import Codex from "./models/Codex.model.js";
 import Artifact from "./models/Artifact.model.js";
 
 const checkData = async () => {
@@ -36,9 +36,9 @@ const checkData = async () => {
 
         console.log("\n--- CODEX STATS ---");
         console.log(`Total Codex: ${codex.length}`);
-        console.log(`✅ Valid URLs: ${urlCount}`);
-        console.log(`❌ Base64/Heavy: ${base64Count}`);
-        console.log(`⚠️ No Image: ${nullCount}`);
+        console.log(`âœ… Valid URLs: ${urlCount}`);
+        console.log(`âŒ Base64/Heavy: ${base64Count}`);
+        console.log(`âš ï¸ No Image: ${nullCount}`);
         
         if (hugeExamples.length > 0) {
             console.log("\n--- PROBLEMATIC CODEXS (Base64) ---");

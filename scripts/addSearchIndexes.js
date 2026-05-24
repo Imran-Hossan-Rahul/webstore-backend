@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import dotenv from "dotenv";
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
@@ -9,7 +9,7 @@ import Job from "../models/Job.model.js";
 dotenv.config();
 
 /**
- * 🚀 STEP 1: Add Text Search Indexes
+ * ðŸš€ STEP 1: Add Text Search Indexes
  * 
  * This script adds MongoDB text indexes for efficient full-text search
  * WITHOUT modifying any existing code logic.
@@ -22,12 +22,12 @@ dotenv.config();
 
 async function addSearchIndexes() {
   try {
-    console.log("🔌 Connecting to MongoDB...");
+    console.log("ðŸ”Œ Connecting to MongoDB...");
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Connected to MongoDB\n");
+    console.log("âœ… Connected to MongoDB\n");
 
     // Check existing indexes first
-    console.log("📊 Checking existing indexes...\n");
+    console.log("ðŸ“Š Checking existing indexes...\n");
 
     const userIndexes = await User.collection.getIndexes();
     const postIndexes = await Post.collection.getIndexes();
@@ -41,7 +41,7 @@ async function addSearchIndexes() {
     console.log("Codex indexes:", Object.keys(codexIndexes));
     console.log("Job indexes:",  Object.keys(jobIndexes));
 
-    console.log("\n🔨 Creating text search indexes...\n");
+    console.log("\nðŸ”¨ Creating text search indexes...\n");
 
     // 1. User Search Index (name, bio, skills)
     try {
@@ -67,9 +67,9 @@ async function addSearchIndexes() {
           }
         }
       );
-      console.log("✅ User search index created");
+      console.log("âœ… User search index created");
     } catch (error) {
-      console.log("⚠️  User index:", error.message);
+      console.log("âš ï¸  User index:", error.message);
     }
 
     // 2. Post Search Index (content, tags, category)
@@ -89,16 +89,16 @@ async function addSearchIndexes() {
           }
         }
       );
-      console.log("✅ Post search index created");
+      console.log("âœ… Post search index created");
     } catch (error) {
-      console.log("⚠️  Post index:", error.message);
+      console.log("âš ï¸  Post index:", error.message);
     }
 
     // 3. Artifact already has text index, but let's verify
-    console.log("✅ Artifact search index already exists (from model)");
+    console.log("âœ… Artifact search index already exists (from model)");
 
     // 4. Codex already has text index
-    console.log("✅ Codex search index already exists (from model)");
+    console.log("âœ… Codex search index already exists (from model)");
 
     // 5. Job Search Index (title, description, skills, category)
     try {
@@ -119,20 +119,20 @@ async function addSearchIndexes() {
           }
         }
       );
-      console.log("✅ Job search index created");
+      console.log("âœ… Job search index created");
     } catch (error) {
-      console.log("⚠️  Job index:", error.message);
+      console.log("âš ï¸  Job index:", error.message);
     }
 
     // 5. Additional performance indexes
-    console.log("\n🔨 Creating additional performance indexes...\n");
+    console.log("\nðŸ”¨ Creating additional performance indexes...\n");
 
     // User email index (for login optimization)
     try {
       await User.collection.createIndex({ email: 1 }, { unique: true });
-      console.log("✅ User email index verified");
+      console.log("âœ… User email index verified");
     } catch (error) {
-      console.log("⚠️  User email index already exists");
+      console.log("âš ï¸  User email index already exists");
     }
 
     // Post status + type compound index (for feed queries)
@@ -141,9 +141,9 @@ async function addSearchIndexes() {
         { status: 1, postType: 1, createdAt: -1 },
         { name: "post_feed_index" }
       );
-      console.log("✅ Post feed index created");
+      console.log("âœ… Post feed index created");
     } catch (error) {
-      console.log("⚠️  Post feed index:", error.message);
+      console.log("âš ï¸  Post feed index:", error.message);
     }
 
     // Artifact active + category index
@@ -152,9 +152,9 @@ async function addSearchIndexes() {
         { isActive: 1, category: 1, createdAt: -1 },
         { name: "artifact_feed_index" }
       );
-      console.log("✅ Artifact feed index created");
+      console.log("âœ… Artifact feed index created");
     } catch (error) {
-      console.log("⚠️  Artifact feed index:", error.message);
+      console.log("âš ï¸  Artifact feed index:", error.message);
     }
 
     // Codex published index
@@ -163,13 +163,13 @@ async function addSearchIndexes() {
         { isPublished: 1, isDeleted: 1, createdAt: -1 },
         { name: "codex_feed_index" }
       );
-      console.log("✅ Codex feed index created");
+      console.log("âœ… Codex feed index created");
     } catch (error) {
-      console.log("⚠️  Codex feed index:", error.message);
+      console.log("âš ï¸  Codex feed index:", error.message);
     }
 
-    console.log("\n✅ All indexes created successfully!");
-    console.log("\n📊 Final index summary:");
+    console.log("\nâœ… All indexes created successfully!");
+    console.log("\nðŸ“Š Final index summary:");
     
     const finalUserIndexes = await User.collection.getIndexes();
     const finalPostIndexes = await Post.collection.getIndexes();
@@ -183,14 +183,14 @@ async function addSearchIndexes() {
     console.log("Codex indexes:", Object.keys(finalCodexIndexes).length);
     console.log("Job indexes:", Object.keys(finalJobIndexes).length);
 
-    console.log("\n🎉 Database optimization complete!");
-    console.log("⚠️  NEXT STEP: Update searchController.js to use $text search");
+    console.log("\nðŸŽ‰ Database optimization complete!");
+    console.log("âš ï¸  NEXT STEP: Update searchController.js to use $text search");
 
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("âŒ Error:", error);
   } finally {
     await mongoose.connection.close();
-    console.log("\n🔌 MongoDB connection closed");
+    console.log("\nðŸ”Œ MongoDB connection closed");
   }
 }
 

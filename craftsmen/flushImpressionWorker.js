@@ -1,8 +1,8 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import mongoose from "mongoose";
 import redis from "../config/redis.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Post from "../models/Post.model.js";
 import { rankingQueue } from "../queues/index.js";
 
@@ -13,8 +13,8 @@ const REDIS_HOST = process.env.REDIS_HOST || "127.0.0.1";
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || "6379", 10);
 const FLUSH_INTERVAL_MS = parseInt(process.env.FLUSH_INTERVAL_MS || "5000", 10);
 
-console.log("🟢 Using Redis host:", REDIS_HOST);
-console.log("🟢 Using Redis port:", REDIS_PORT);
+console.log("ðŸŸ¢ Using Redis host:", REDIS_HOST);
+console.log("ðŸŸ¢ Using Redis port:", REDIS_PORT);
 
 // -----------------------------
 // Helper: GET+DEL atomically
@@ -33,7 +33,7 @@ async function getAndDel(key) {
     const res = await redis.eval(GETDEL_LUA, 1, key);
     return res ? res : null;
   } catch (err) {
-    console.error("❌ Redis GET+DEL error:", key, err.message);
+    console.error("âŒ Redis GET+DEL error:", key, err.message);
     return null;
   }
 }
@@ -44,7 +44,7 @@ async function getAndDel(key) {
 const SCAN_COUNT = 200;
 
 async function flushImpressionsOnce() {
-  console.log("🧹 Starting impression flush cycle...");
+  console.log("ðŸ§¹ Starting impression flush cycle...");
   const deltas = new Map();
   const codexDeltas = new Map();
   const postDeltas = new Map();
@@ -75,7 +75,7 @@ async function flushImpressionsOnce() {
     cur.impressions += parseInt(val, 10);
     deltas.set(artifactId, cur);
 
-    console.log(`🔹 Artifact impressions delta collected: ${artifactId} += ${val}`);
+    console.log(`ðŸ”¹ Artifact impressions delta collected: ${artifactId} += ${val}`);
   }
 
   // 2. Codex impressions delta
@@ -88,7 +88,7 @@ async function flushImpressionsOnce() {
     cur.impressions += parseInt(val, 10);
     codexDeltas.set(codexId, cur);
 
-    console.log(`🔹 Codex impressions delta collected: ${codexId} += ${val}`);
+    console.log(`ðŸ”¹ Codex impressions delta collected: ${codexId} += ${val}`);
   }
 
   // 3. Post impressions delta
@@ -101,11 +101,11 @@ async function flushImpressionsOnce() {
     cur.impressions += parseInt(val, 10);
     postDeltas.set(postId, cur);
 
-    console.log(`🔹 Post impressions delta collected: ${postId} += ${val}`);
+    console.log(`ðŸ”¹ Post impressions delta collected: ${postId} += ${val}`);
   }
 
   if (deltas.size === 0 && codexDeltas.size === 0 && postDeltas.size === 0) {
-    console.log("ℹ️ No impression deltas to flush.");
+    console.log("â„¹ï¸ No impression deltas to flush.");
     return;
   }
 
@@ -229,17 +229,17 @@ async function flushImpressionsOnce() {
 
   try {
     if (bulkOps.length > 0) {
-      console.log(`💾 Bulk writing ${bulkOps.length} artifacts impressions...`);
+      console.log(`ðŸ’¾ Bulk writing ${bulkOps.length} artifacts impressions...`);
       await Artifact.bulkWrite(bulkOps, { ordered: false });
     }
 
     if (codexBulkOps.length > 0) {
-      console.log(`💾 Bulk writing ${codexBulkOps.length} codex impressions...`);
+      console.log(`ðŸ’¾ Bulk writing ${codexBulkOps.length} codex impressions...`);
       await Codex.bulkWrite(codexBulkOps, { ordered: false });
     }
 
     if (postBulkOps.length > 0) {
-      console.log(`💾 Bulk writing ${postBulkOps.length} posts impressions...`);
+      console.log(`ðŸ’¾ Bulk writing ${postBulkOps.length} posts impressions...`);
       await Post.bulkWrite(postBulkOps, { ordered: false });
     }
 
@@ -250,12 +250,12 @@ async function flushImpressionsOnce() {
         { artifactId: id },
         { removeOnComplete: true, removeOnFail: true }
       );
-      console.log(`🚀 Ranking job queued for artifact: ${id}`);
+      console.log(`ðŸš€ Ranking job queued for artifact: ${id}`);
     }
 
-    console.log("✅ Impression flush cycle completed successfully.");
+    console.log("âœ… Impression flush cycle completed successfully.");
   } catch (err) {
-    console.error("❌ Flush bulkWrite error:", err);
+    console.error("âŒ Flush bulkWrite error:", err);
 
     // Rollback to Redis
     for (const [artifactId, { impressions }] of deltas.entries()) {
@@ -274,10 +274,10 @@ async function flushImpressionsOnce() {
 // Craftsman loop
 // -----------------------------
 function runFlushImpressionCraftsman() {
-  console.log("🚀 Flush Impression Craftsman Started");
+  console.log("ðŸš€ Flush Impression Craftsman Started");
   setInterval(() => {
     flushImpressionsOnce().catch((err) =>
-      console.error("❌ Flush error:", err)
+      console.error("âŒ Flush error:", err)
     );
   }, FLUSH_INTERVAL_MS);
 }

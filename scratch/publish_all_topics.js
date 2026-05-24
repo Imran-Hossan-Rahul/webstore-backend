@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Codex from "../models/Codex.model.js";
 
@@ -16,7 +16,7 @@ const topics = [
     readTime: "7 min read",
     content: `<div data-type="container"><div data-type="section"><h1 style="text-align: center;">Synchronous vs. Asynchronous: The Non-Blocking I/O Revolution in Node.js</h1><p>Every senior engineer eventually learns a painful truth: CPU cycles are incredibly fast, but I/O (Input/Output) operations are incredibly slow. When your application reads a file from a hard drive, makes an API call to a remote payment gateway, or queries a massive database index, your code is hitting a massive physical speed limit.</p><p>How your runtime handles these slow I/O gaps is the single most critical factor separating a toy project from a high-performance, enterprise-grade server capable of handling millions of concurrent users. Let us explore the difference between <strong>Synchronous (Blocking)</strong> and <strong>Asynchronous (Non-Blocking)</strong> architectures in Node.js, and dissect the underlying system mechanics that make high-speed backend execution possible.</p><h2>1. The Bottleneck: What Actually is "Blocking"?</h2><p>In traditional synchronous programming, execution happens line-by-line. The JavaScript engine's call stack handles only one instruction at a time. If an operation takes 5 seconds to read a file, the entire main thread freezes. The CPU is literally sitting idle, waiting for magnetic disk platters to spin or SSD gates to read data.</p><p>Think of it as a busy fast-food restaurant with a single cashier who is also the chef. A customer orders a complex custom burger. The cashier steps away, goes to the kitchen, cooks the burger, wraps it, and serves it. Only then does the cashier take the order of the next customer waiting in line. The entire line is <strong>blocked</strong>.</p><p>In a single-user system, this is barely noticeable. But inside a backend web server handling HTTP requests, this is an absolute disaster. If a single user requests a large CSV report and your server processes it using a blocking synchronous command (like <code>fs.readFileSync</code>), <strong>no other user can connect to the server during those seconds</strong>. Everyone else's HTTP requests are paused, eventually resulting in client timeouts and failed connections.</p><h2>2. Under the Hood: V8 Stack vs. libuv Thread Pool</h2><p>To bypass this limitation, Ryan Dahl integrated **libuv** into Node.js. JavaScript itself is single-threaded. V8 only executes JS code. But libuv provides a multi-threaded C++ sandbox and an asynchronous **Event Loop**.</p><p>When you call an asynchronous file read operation in Node.js:</p><ol><li><strong>Offloading the Task</strong>: V8 processes the file read statement and immediately passes the operation to libuv along with a JavaScript callback function.</li><li><strong>Continuing Main Execution</strong>: V8 does not wait. It instantly clears the statement from its call stack and continues executing the subsequent lines of JavaScript code. The main thread is never blocked.</li><li><strong>The OS Worker</strong>: libuv takes the file read task and delegates it to a free thread in its low-level <strong>Thread Pool</strong> (typically starting with 4 threads). The worker thread waits for the filesystem operation to complete, leaving the main thread free.</li><li><strong>The Callback Queue</strong>: Once the filesystem finishes, the worker thread puts your callback function into the **Event Loop Queue**.</li><li><strong>Event Loop Cycle</strong>: The Event Loop constantly monitors the main V8 call stack. The moment the call stack is completely empty, it pulls the callback from the queue and pushes it onto the call stack to execute.</li></ol><h2>3. Visualizing Blocking vs. Non-Blocking Flow</h2><table><thead><tr><th>Mechanism</th><th>Synchronous File Read (Blocking)</th><th>Asynchronous File Read (Non-Blocking)</th></tr></thead><tbody><tr><td><strong>Execution Model</strong></td><td>Serial execution (one operation must end before next starts).</td><td>Concurrent execution (slow tasks offloaded immediately).</td></tr><tr><td><strong>Call Stack State</strong></td><td>Remains occupied until data is completely read.</td><td>Occupied for microseconds, offloads task, clears immediately.</td></tr><tr><td><strong>V8 Main Thread</strong></td><td>Completely frozen during disk I/O.</td><td>Remains free to parse other JS operations or serve HTTP clients.</td></tr><tr><td><strong>CPU Efficiency</strong></td><td>Highly inefficient (wastes millions of clock cycles waiting).</td><td>Extremely efficient (keeps V8 executing logic while OS handles I/O).</td></tr><tr><td><strong>Methods Used</strong></td><td><code>fs.readFileSync()</code>, <code>fs.writeFileSync()</code>.</td><td><code>fs.readFile()</code>, <code>fs.promises.readFile()</code>.</td></tr></tbody></table><h2>4. Battle of the Snipets: Synchronous vs Asynchronous</h2><p>Let's run a real-world benchmark experiment. We will create two different execution patterns inside our workspace to demonstrate thread blocking in real-time.</p><h3>The Synchronous (Blocking) Approach:</h3><pre><code class="language-javascript">const fs = require('fs');
 
-console.time("⏱️ Sync Total Execution");
+console.time("â±ï¸ Sync Total Execution");
 console.log("1. Starting expensive database backup read...");
 
 // This file read freezes the entire V8 thread!
@@ -24,20 +24,20 @@ const data = fs.readFileSync('large_backup.json', 'utf8');
 console.log(\`2. Backup read complete! Size: \${data.length} characters.\`);
 
 console.log("3. Moving to the next tasks (e.g. serving other users)...");
-console.timeEnd("⏱️ Sync Total Execution");</code></pre><p><strong>Synchronous Execution Timeline:</strong><br />If the backup file is huge, step 3 is completely paused. The server cannot print "Moving to the next tasks" until the entire file is fully loaded into RAM. If a user connected during this time, they got a loading spinner.</p><h3>The Asynchronous (Non-Blocking) Approach:</h3><pre><code class="language-javascript">const fs = require('fs');
+console.timeEnd("â±ï¸ Sync Total Execution");</code></pre><p><strong>Synchronous Execution Timeline:</strong><br />If the backup file is huge, step 3 is completely paused. The server cannot print "Moving to the next tasks" until the entire file is fully loaded into RAM. If a user connected during this time, they got a loading spinner.</p><h3>The Asynchronous (Non-Blocking) Approach:</h3><pre><code class="language-javascript">const fs = require('fs');
 
-console.time("⏱️ Async Total Execution");
+console.time("â±ï¸ Async Total Execution");
 console.log("1. Starting expensive database backup read asynchronously...");
 
 // The task is immediately offloaded to libuv. The main thread continues!
 fs.readFile('large_backup.json', 'utf8', (err, data) => {
-    if (err) return console.error("❌ Error reading backup:", err);
-    console.log(\`\\n💾 Callback Fired: Backup read complete! Size: \${data.length} chars.\`);
-    console.timeEnd("⏱️ Callback Delay");
+    if (err) return console.error("âŒ Error reading backup:", err);
+    console.log(\`\\nðŸ’¾ Callback Fired: Backup read complete! Size: \${data.length} chars.\`);
+    console.timeEnd("â±ï¸ Callback Delay");
 });
 
 console.log("2. Moving to the next tasks (e.g. serving other users successfully!)...");
-console.timeEnd("⏱️ Async Total Execution");</code></pre><p><strong>Asynchronous Execution Timeline:</strong><br />In this model, the engine instantly prints step 1, passes the file task to libuv, prints step 2 immediately, and prints the total async execution time (which takes less than 1-2 milliseconds). When libuv completes the disk access, the callback executes cleanly in the background.</p><h2>5. Senior Architect Rule of Thumb</h2><blockquote>🔥 <strong>25-Year Industry Battle-Scar Rule:</strong> Standard synchronous APIs (like <code>readFileSync</code>) are only acceptable in two specific scenarios:<br />1. In one-time CLI automation scripts where user concurrency is non-existent.<br />2. During the server bootstrapping/startup phase (e.g., loading SSL certificates or initial config files once before the server starts listening for requests).<br /><br />Outside of these, using blocking methods in a web request handler is a production-level incident waiting to happen. Always use non-blocking asynchronous APIs!</blockquote><h2>Summary</h2><p>By shifting from blocking execution to libuv-backed non-blocking asynchronous architecture, Node.js changed the scalability landscape. You now understand how V8 maintains a clean stack while background system tasks are safely managed by OS worker threads. Respect the thread, preserve the call stack, and build robust, non-blocking backend architectures!</p></div></div>`
+console.timeEnd("â±ï¸ Async Total Execution");</code></pre><p><strong>Asynchronous Execution Timeline:</strong><br />In this model, the engine instantly prints step 1, passes the file task to libuv, prints step 2 immediately, and prints the total async execution time (which takes less than 1-2 milliseconds). When libuv completes the disk access, the callback executes cleanly in the background.</p><h2>5. Senior Architect Rule of Thumb</h2><blockquote>ðŸ”¥ <strong>25-Year Industry Battle-Scar Rule:</strong> Standard synchronous APIs (like <code>readFileSync</code>) are only acceptable in two specific scenarios:<br />1. In one-time CLI automation scripts where user concurrency is non-existent.<br />2. During the server bootstrapping/startup phase (e.g., loading SSL certificates or initial config files once before the server starts listening for requests).<br /><br />Outside of these, using blocking methods in a web request handler is a production-level incident waiting to happen. Always use non-blocking asynchronous APIs!</blockquote><h2>Summary</h2><p>By shifting from blocking execution to libuv-backed non-blocking asynchronous architecture, Node.js changed the scalability landscape. You now understand how V8 maintains a clean stack while background system tasks are safely managed by OS worker threads. Respect the thread, preserve the call stack, and build robust, non-blocking backend architectures!</p></div></div>`
   },
   {
     title: "Deep-Diving Node's Native File System: Working with File Descriptors and Buffers",
@@ -50,30 +50,30 @@ console.timeEnd("⏱️ Async Total Execution");</code></pre><p><strong>Asynchro
 fs.readFile('secret.txt', (err, data) => {
     if (err) throw err;
     console.log(data); 
-    // Output: &lt;Buffer 49 6d 72 61 6e 20 48 6f 73 73 61 6e&gt; 🤯
+    // Output: &lt;Buffer 49 6d 72 61 6e 20 48 6f 73 73 61 6e&gt; ðŸ¤¯
 });</code></pre><p>To convert this raw byte array into a human-readable string, you must specify an **Encoding** format (usually <code>utf8</code>):</p><pre><code class="language-javascript">console.log(data.toString('utf8')); // Output: "Imran Hossan"</code></pre><h2>3. Reading Files: The Three Programming Paradigms</h2><p>The native <code>fs</code> module provides three distinct paradigms to interact with the filesystem. Understanding when to use which is the hallmark of a senior engineer.</p><h3>Paradigm A: Synchronous (Blocking) - The CLI Sandbox</h3><pre><code class="language-javascript">const fs = require('fs');
 
 try {
     const content = fs.readFileSync('config.json', 'utf8');
     console.log("Config loaded:", content);
 } catch (error) {
-    console.error("❌ Failed to read config:", error.message);
+    console.error("âŒ Failed to read config:", error.message);
 }</code></pre><p><strong>Pros:</strong> Extremely simple, linear flow.<br /><strong>Cons:</strong> Blocks the event loop. **Production Warning:** Only use during initial server boot scripts, never inside request routes.</p><h3>Paradigm B: Asynchronous Callback-Based - The Legacy Standard</h3><pre><code class="language-javascript">const fs = require('fs');
 
 fs.readFile('config.json', 'utf8', (error, content) => {
     if (error) {
-        console.error("❌ Error:", error.message);
+        console.error("âŒ Error:", error.message);
         return;
     }
     console.log("Config loaded:", content);
 });</code></pre><p><strong>Pros:</strong> Non-blocking, highly efficient.<br /><strong>Cons:</strong> Reading nested files quickly devolves into deep, unreadable "Callback Hell".</p><h3>Paradigm C: Promisified fs - The Senior standard</h3><p>We will deep-dive into the modern Promisified API (<code>fs.promises</code>) in our next article. It provides the absolute best of both worlds: complete non-blocking execution with the elegant readability of <code>async/await</code>.</p><h2>4. Battle-Tested Error Handling</h2><p>Filesystems are highly volatile environments. Files can be deleted, renamed, locked by other processes, or lack read permissions. Never assume a file read will succeed. Your error handling must be precise, parsing specific OS system error codes:</p><pre><code class="language-javascript">fs.readFile('database.json', 'utf8', (err, data) => {
     if (err) {
         if (err.code === 'ENOENT') {
-            console.error("❌ Error: File does not exist at path.");
+            console.error("âŒ Error: File does not exist at path.");
         } else if (err.code === 'EACCES') {
-            console.error("❌ Error: Permission denied.");
+            console.error("âŒ Error: Permission denied.");
         } else {
-            console.error("❌ Unexpected System Error:", err.message);
+            console.error("âŒ Unexpected System Error:", err.message);
         }
         return;
     }
@@ -97,7 +97,7 @@ fs.readFile('config.json', 'utf8', (err, configStr) => {
         
         fs.writeFile('log.txt', 'Database accessed successfully!', (err) => {
             if (err) return console.error(err);
-            console.log("🎉 All operations completed!");
+            console.log("ðŸŽ‰ All operations completed!");
         });
     });
 });</code></pre><p>Look at the nesting. It drifts further and further to the right. Error handling is duplicated on every level. If you need to add two more sequential steps, your codebase becomes a maintenance nightmare.</p><h2>2. Enter the Modern Standard: fs/promises</h2><p>In modern Node.js, you can import the promisified file system utilities directly from <code>fs/promises</code> (or <code>require('fs').promises</code>). Instead of passing callback functions, these methods immediately return a native JavaScript <strong>Promise</strong> object representing the eventual completion (or failure) of the disk operation.</p><p>Here is how we import the promises API:</p><pre><code class="language-javascript">// ES Module style (Modern Standard)
@@ -118,9 +118,9 @@ async function processSystemFiles() {
         // 3. Write a persistent log file
         await fs.writeFile('log.txt', 'Database accessed successfully!');
         
-        console.log("🎉 All operations completed asynchronously in a flat, readable style!");
+        console.log("ðŸŽ‰ All operations completed asynchronously in a flat, readable style!");
     } catch (error) {
-        console.error("❌ Critical System Error in pipeline:", error.message);
+        console.error("âŒ Critical System Error in pipeline:", error.message);
     }
 }
 
@@ -151,9 +151,9 @@ async function saveConfiguration() {
     
     try {
         await fs.writeFile('config.json', JSON.stringify(config, null, 2), 'utf8');
-        console.log("💾 Configuration saved successfully!");
+        console.log("ðŸ’¾ Configuration saved successfully!");
     } catch (err) {
-        console.error("❌ Failed to persist configuration:", err.message);
+        console.error("âŒ Failed to persist configuration:", err.message);
     }
 }</code></pre><h2>2. Appending vs. Overwriting: The Logging Paradigm</h2><p>What if you want to record live server activities, like a transaction history or user visit events? If you use \`writeFile\`, every single visit will erase all previous logs! To keep the historical database intact, you must use **appendFile**:</p><pre><code class="language-javascript">import fs from 'fs/promises';
 
@@ -162,9 +162,9 @@ async function logSystemEvent(eventDescription) {
     try {
         // Appends data to the end of the file. Creates the file if missing.
         await fs.appendFile('server_activity.log', logLine, 'utf8');
-        console.log("📈 Event recorded to activity log.");
+        console.log("ðŸ“ˆ Event recorded to activity log.");
     } catch (err) {
-        console.error("❌ Logging failed:", err.message);
+        console.error("âŒ Logging failed:", err.message);
     }
 }
 
@@ -172,15 +172,15 @@ logSystemEvent("User 'Imran' successfully authenticated via OAuth.");</code></pr
     try {
         // This will CRASH and fail safely if 'system_lock.json' already exists!
         await fs.writeFile('system_lock.json', 'LOCKED', { flag: 'wx' });
-        console.log("🔒 Lock acquired successfully!");
+        console.log("ðŸ”’ Lock acquired successfully!");
     } catch (err) {
         if (err.code === 'EEXIST') {
-            console.error("⚠️ Conflict Alert: System lock file already exists. Aborting operation.");
+            console.error("âš ï¸ Conflict Alert: System lock file already exists. Aborting operation.");
         } else {
             console.error("Unexpected filesystem failure:", err.message);
         }
     }
-}</code></pre><h2>4. Thread Pool Scaling & Race Conditions</h2><blockquote>⚠️ <strong>Senior Architecture Alert:</strong> Because Node.js handles multiple requests concurrently inside the event loop, calling \`fs.appendFile\` simultaneously across multiple async threads on the same target log file can sometimes lead to **Race Conditions** or file locking conflicts. If you are building high-volume logging platforms, use **Write Streams** (using \`fs.createWriteStream\`) or specialized logging middleware instead of raw file appends. We will explore streams in detail in future articles!</blockquote><h2>Summary</h2><p>Programmatic data persistence is the bedrock of server development. By mastering standard file writing, understanding append operations, and employing low-level OS flags like <code>wx</code>, you possess full surgical control over physical hard drive persistence. Write clean, wrap in locks when necessary, and safeguard your server's data!</p></div></div>`
+}</code></pre><h2>4. Thread Pool Scaling & Race Conditions</h2><blockquote>âš ï¸ <strong>Senior Architecture Alert:</strong> Because Node.js handles multiple requests concurrently inside the event loop, calling \`fs.appendFile\` simultaneously across multiple async threads on the same target log file can sometimes lead to **Race Conditions** or file locking conflicts. If you are building high-volume logging platforms, use **Write Streams** (using \`fs.createWriteStream\`) or specialized logging middleware instead of raw file appends. We will explore streams in detail in future articles!</blockquote><h2>Summary</h2><p>Programmatic data persistence is the bedrock of server development. By mastering standard file writing, understanding append operations, and employing low-level OS flags like <code>wx</code>, you possess full surgical control over physical hard drive persistence. Write clean, wrap in locks when necessary, and safeguard your server's data!</p></div></div>`
   },
   {
     title: "Filesystem Housekeeping in Node.js: Checking, Updating, and Safely Deleting Files",
@@ -197,14 +197,14 @@ async function safelyCleanTemporaryFile(filePath) {
         
         // 2. Perform the deletion
         await fs.unlink(filePath);
-        console.log(\`🧹 Cleaned up temporary file: \${filePath}\`);
+        console.log(\`ðŸ§¹ Cleaned up temporary file: \${filePath}\`);
     } catch (err) {
         if (err.code === 'ENOENT') {
-            console.log("ℹ️ Housekeeping skipped: File already deleted or does not exist.");
+            console.log("â„¹ï¸ Housekeeping skipped: File already deleted or does not exist.");
         } else if (err.code === 'EACCES') {
-            console.error("❌ Permission Denied: Cannot delete file at:", filePath);
+            console.error("âŒ Permission Denied: Cannot delete file at:", filePath);
         } else {
-            console.error("❌ Critical Housekeeping failure:", err.message);
+            console.error("âŒ Critical Housekeeping failure:", err.message);
         }
     }
 }</code></pre><h2>3. Creating and Managing Directories</h2><p>Often, you cannot save files in the root folder; you need to create a dedicated subdirectory (e.g. \`uploads/avatars/\`). If you try to write to a subdirectory that doesn't exist, Node will crash with a <code>ENOENT: no such file or directory</code> error.</p><p>To create folders safely, we use \`fs.promises.mkdir\` with the **recursive** option set to true. This mirrors the terminal command <code>mkdir -p</code>, creating any nested parent directories automatically:</p><pre><code class="language-javascript">async function ensureUploadsFolder() {
@@ -212,11 +212,11 @@ async function safelyCleanTemporaryFile(filePath) {
     try {
         // Creates uploads, users, and avatars subfolders recursively!
         await fs.mkdir(targetDir, { recursive: true });
-        console.log("📁 Uploads directory structure is fully active!");
+        console.log("ðŸ“ Uploads directory structure is fully active!");
     } catch (err) {
         console.error("Failed to compile directories:", err.message);
     }
-}</code></pre><h2>4. Complete Safe Update Pipeline</h2><p>Updating a file safely in a high-concurrency database-like environment requires atomic operations. If your server crashes mid-way through rewriting a config file, you will end up with a half-written, corrupted file!</p><blockquote>🔥 <strong>25-Year Industry Housekeeping Blueprint:</strong> To update a critical file safely, never write directly over it. Instead:<br />1. Write the new updated content to a temporary scratch file (e.g., \`config.json.tmp\`).<br />2. Verify the temporary file was written fully and parses correctly.<br />3. Atomically rename/replace the original file with the temporary file using <code>fs.promises.rename()</code>.<br /><br />Since \`rename\` is an atomic system call at the operating system level, this guarantees the file is either 100% updated or remains in its original safe state, with zero corrupted middle grounds!</blockquote><h2>Summary</h2><p>Filesystem maintenance is critical to backend longevity. By mastering inode-linking mechanisms with <code>unlink</code>, safely validating files with <code>access</code>, managing directory trees recursively with <code>mkdir</code>, and utilizing atomic renames, you possess a highly professional housekeeping playbook. Keep your servers clean, protect your storage blocks, and design clean data cleanups!</p></div></div>`
+}</code></pre><h2>4. Complete Safe Update Pipeline</h2><p>Updating a file safely in a high-concurrency database-like environment requires atomic operations. If your server crashes mid-way through rewriting a config file, you will end up with a half-written, corrupted file!</p><blockquote>ðŸ”¥ <strong>25-Year Industry Housekeeping Blueprint:</strong> To update a critical file safely, never write directly over it. Instead:<br />1. Write the new updated content to a temporary scratch file (e.g., \`config.json.tmp\`).<br />2. Verify the temporary file was written fully and parses correctly.<br />3. Atomically rename/replace the original file with the temporary file using <code>fs.promises.rename()</code>.<br /><br />Since \`rename\` is an atomic system call at the operating system level, this guarantees the file is either 100% updated or remains in its original safe state, with zero corrupted middle grounds!</blockquote><h2>Summary</h2><p>Filesystem maintenance is critical to backend longevity. By mastering inode-linking mechanisms with <code>unlink</code>, safely validating files with <code>access</code>, managing directory trees recursively with <code>mkdir</code>, and utilizing atomic renames, you possess a highly professional housekeeping playbook. Keep your servers clean, protect your storage blocks, and design clean data cleanups!</p></div></div>`
   },
   {
     title: "Node's Path Module: Demystifying __dirname and Slash Compatibility",
@@ -246,7 +246,7 @@ console.log(absoluteDir);
     content: `<div data-type="container"><div data-type="section"><h1 style="text-align: center;">Hardware Diagnostics in Node.js: Harnessing Kernel APIs with the OS Module</h1><p>When you write client-side JavaScript, you are sandboxed inside a security container. The browser strictly prevents you from reading hardware specs or querying system details to protect user privacy. But as a backend Node.js software engineer, you run with direct system privileges. Your code interacts with the actual host hardware, virtual machine container, or remote server.</p><p>To build automated load-balancers, server health monitors, or licensing checks, you must be able to query the host machine's hardware profile. Let us discover Node's native <strong>OS (Operating System)</strong> module and learn how to extract live hardware metrics, memory constraints, and CPU thread stats.</p><h2>1. Bridging JS to System Kernels</h2><p>How does a high-level JavaScript runtime inspect physical RAM sticks or query CPU core allocations? The answer is Node's C++ system bindings.</p><p>Node's standard library packages a native <code>os</code> module. When you call an OS method, Node passes the call down through its C++ binding layer, which executes native operating system kernel calls (e.g., system APIs on Windows or <code>sysctl</code>/<code>proc</code> system queries on Linux). The operating system kernel fetches the hardware state and returns it through V8 as standard JavaScript numbers and strings.</p><h2>2. Constructing a Real-Time Server Health Monitor</h2><p>Let's write a senior-grade, production-level diagnostics script that queries the host hardware, calculates system memory usage, and formats CPU profiles in real-time:</p><pre><code class="language-javascript">import os from 'os';
 
 function runSystemDiagnostics() {
-    console.log("=== 🖥️ HOST SYSTEM DIAGNOSTICS ===");
+    console.log("=== ðŸ–¥ï¸ HOST SYSTEM DIAGNOSTICS ===");
     
     // 1. Core Platform specifications
     console.log("Operating System Platform:", os.platform()); // e.g. 'win32', 'linux', 'darwin'
@@ -256,7 +256,7 @@ function runSystemDiagnostics() {
     
     // 2. CPU Thread Architecture
     const cpus = os.cpus();
-    console.log(\`\\n=== 🧠 CPU PROFILE (\${cpus.length} Threads detected) ===\`);
+    console.log(\`\\n=== ðŸ§  CPU PROFILE (\${cpus.length} Threads detected) ===\`);
     console.log("Model Info:", cpus[0].model);
     console.log("Clock Speed:", cpus[0].speed, "MHz");
     
@@ -269,7 +269,7 @@ function runSystemDiagnostics() {
     
     const memoryUsagePercent = ((usedMemBytes / totalMemBytes) * 100).toFixed(1);
     
-    console.log(\`\\n=== 💾 SYSTEM RAM METRICS ===\`);
+    console.log(\`\\n=== ðŸ’¾ SYSTEM RAM METRICS ===\`);
     console.log(\`Total Machine Memory: \${bytesToGB(totalMemBytes)} GB\`);
     console.log(\`Currently Free Memory: \${bytesToGB(freeMemBytes)} GB\`);
     console.log(\`Currently Used Memory: \${bytesToGB(usedMemBytes)} GB (\${memoryUsagePercent}% utilized)\`);
@@ -302,7 +302,7 @@ async function publishAll() {
   try {
     console.log("Connecting to Database...");
     await mongoose.connect(uri);
-    console.log("✅ Database Connected!");
+    console.log("âœ… Database Connected!");
 
     for (const t of topics) {
       console.log(`\nProcessing Topic: "${t.title}"`);
@@ -310,7 +310,7 @@ async function publishAll() {
       // Check if it already exists by title
       const exists = await Codex.exists({ title: t.title });
       if (exists) {
-        console.log(`⚠️ Skip: Already exists in database!`);
+        console.log(`âš ï¸ Skip: Already exists in database!`);
         continue;
       }
 
@@ -329,14 +329,14 @@ async function publishAll() {
 
       // Save document (pre-save middleware generates collision-safe slug & excerpt automatically)
       await codex.save();
-      console.log(`🎉 Successfully published: "${t.title}"`);
-      console.log(`🔗 Slug generated: "${codex.slug}"`);
+      console.log(`ðŸŽ‰ Successfully published: "${t.title}"`);
+      console.log(`ðŸ”— Slug generated: "${codex.slug}"`);
     }
 
-    console.log("\n✅ All topics in Phase 1.2 successfully published!");
+    console.log("\nâœ… All topics in Phase 1.2 successfully published!");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Fatal publish error:", err);
+    console.error("âŒ Fatal publish error:", err);
     process.exit(1);
   }
 }
