@@ -1,13 +1,13 @@
-import User from "../models/User.model.js";
+﻿import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Job from "../models/Job.model.js";
 import Challenge from "../models/Challenge.model.js";
 import logger from "../utils/logger.js";
 
 /**
- * 🚀 HIGH-PERFORMANCE GLOBAL SEARCH
+ * ðŸš€ HIGH-PERFORMANCE GLOBAL SEARCH
  * 
  * Optimizations:
  * 1. Short-circuiting: Skips expensive regex if text search is sufficient.

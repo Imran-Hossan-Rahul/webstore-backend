@@ -1,10 +1,10 @@
-import User from "../models/User.model.js";
+﻿import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 
 /**
- * 🚀 OPTIMIZED GLOBAL SEARCH
+ * ðŸš€ OPTIMIZED GLOBAL SEARCH
  * 
  * Performance Improvements:
  * - Uses MongoDB $text search instead of regex (10-15x faster)
@@ -30,9 +30,9 @@ export const globalSearch = async (req, res) => {
     let users, posts, artifacts, codex;
 
     if (USE_TEXT_SEARCH) {
-      // ═══════════════════════════════════════════════════════════
-      // 🚀 OPTIMIZED: Text Search (O(log n) per collection)
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸš€ OPTIMIZED: Text Search (O(log n) per collection)
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       [users, posts, artifacts, codex] = await Promise.all([
         // 1. Search Users using text index
@@ -87,9 +87,9 @@ export const globalSearch = async (req, res) => {
       ]);
 
     } else {
-      // ═══════════════════════════════════════════════════════════
-      // 🐌 FALLBACK: Old Regex Search (O(n) per collection)
-      // ═══════════════════════════════════════════════════════════
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ðŸŒ FALLBACK: Old Regex Search (O(n) per collection)
+      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
       
       const regex = new RegExp(searchQuery, "i");
 
@@ -164,7 +164,7 @@ export const globalSearch = async (req, res) => {
     
     // If text search fails (indexes not ready), fallback to regex
     if (error.code === 27 || error.message.includes("text index")) {
-      console.warn("⚠️  Text search failed, falling back to regex search");
+      console.warn("âš ï¸  Text search failed, falling back to regex search");
       
       const regex = new RegExp(req.query.q.trim(), "i");
       

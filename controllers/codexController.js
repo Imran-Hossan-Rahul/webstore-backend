@@ -1,4 +1,4 @@
-import Codex from "../models/codex.model.js";
+﻿import Codex from "../models/Codex.model.js";
 import User from "../models/User.model.js";
 import Comment from "../models/Comment.model.js";
 import geoip from "geoip-lite";
@@ -231,7 +231,7 @@ export const getAllCodex = async (req, res) => {
 
     res.status(200).json(response);
   } catch (error) {
-    console.error("❌ GET ALL CODEXS ERROR:", error);
+    console.error("âŒ GET ALL CODEXS ERROR:", error);
     console.error("Stack:", error.stack);
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -255,11 +255,11 @@ export const getSingleCodex = async (req, res) => {
     
     if (cached) {
       const parsed = JSON.parse(cached);
-      // If author is still an un-populated ObjectId string, it's a stale cache — bypass it.
+      // If author is still an un-populated ObjectId string, it's a stale cache â€” bypass it.
       if (parsed && parsed.author && typeof parsed.author === 'object' && parsed.author._id) {
         return res.status(200).json(parsed);
       }
-      // stale cache entry — fall through and re-fetch from DB
+      // stale cache entry â€” fall through and re-fetch from DB
       try { await redis.del(cacheKey); } catch (e) { /* ignore */ }
     }
 
@@ -310,7 +310,7 @@ export const getCodexAnalytics = async (req, res) => {
     const { range = '7d' } = req.query;
     const userId = req.user._id || req.user.id;
 
-    // 🚀 FIX: Lightweight auth check — no full populate needed
+    // ðŸš€ FIX: Lightweight auth check â€” no full populate needed
     const codexMeta = await Codex.findOne({ slug, isDeleted: false })
       .select('_id author views likesCount comments sharesCount impressions')
       .lean();
@@ -330,11 +330,11 @@ export const getCodexAnalytics = async (req, res) => {
       default:    startTime.setDate(startTime.getDate() - 7);   dateFormat = "%Y-%m-%d"; interval = 'day';
     }
 
-    // 🚀 ALL computation pushed to MongoDB — O(n) single pass per aggregation
+    // ðŸš€ ALL computation pushed to MongoDB â€” O(n) single pass per aggregation
     // No large document loaded into JS memory at all
     const [viewAgg, likeAgg, shareAgg, impressionAgg, commentCount, countryAgg] = await Promise.all([
 
-      // 1. Views trend — server-side $unwind + $group (O(n) single pass)
+      // 1. Views trend â€” server-side $unwind + $group (O(n) single pass)
       Codex.aggregate([
         { $match: { _id: codexMeta._id } },
         { $unwind: "$viewHistory" },
@@ -349,7 +349,7 @@ export const getCodexAnalytics = async (req, res) => {
         { $sort: { "_id": 1 } }
       ]),
 
-      // 2. Likes trend — O(n) on likeHistory array
+      // 2. Likes trend â€” O(n) on likeHistory array
       Codex.aggregate([
         { $match: { _id: codexMeta._id } },
         { $unwind: "$likeHistory" },
@@ -388,10 +388,10 @@ export const getCodexAnalytics = async (req, res) => {
         }
       ]),
 
-      // 5. Comment count — O(log n) on createdAt index, no $in array needed
+      // 5. Comment count â€” O(log n) on createdAt index, no $in array needed
       Comment.countDocuments({ codex: codexMeta._id, createdAt: { $gte: startTime } }),
 
-      // 6. Country distribution — server-side grouping
+      // 6. Country distribution â€” server-side grouping
       Codex.aggregate([
         { $match: { _id: codexMeta._id } },
         { $unwind: "$viewHistory" },
@@ -409,7 +409,7 @@ export const getCodexAnalytics = async (req, res) => {
       ])
     ]);
 
-    // 🚀 Merge trend buckets in O(B) where B = number of time buckets (max ~30 for 30d, ~60 for 1h)
+    // ðŸš€ Merge trend buckets in O(B) where B = number of time buckets (max ~30 for 30d, ~60 for 1h)
     const buckets = new Map();
     const addBucket = (key) => { if (!buckets.has(key)) buckets.set(key, { date: key, views: 0, likes: 0, shares: 0, impressions: 0, comments: 0 }); };
 
@@ -431,7 +431,7 @@ export const getCodexAnalytics = async (req, res) => {
       periodComments: commentCount,
       viewsTrend,
       countryDistribution: countryAgg,
-      // Age demographics require user population — kept lightweight (no populate)
+      // Age demographics require user population â€” kept lightweight (no populate)
       ageDistribution: []
     });
 
@@ -451,12 +451,12 @@ export const likeCodex = async (req, res) => {
         const { slug } = req.params;
         const userId = req.user._id || req.user.id;
         
-        // 🚀 FIX: O(log n) DB-level check via index instead of O(n) .some() array scan
-        // Loads ONLY _id + likesCount — not the entire likes array
+        // ðŸš€ FIX: O(log n) DB-level check via index instead of O(n) .some() array scan
+        // Loads ONLY _id + likesCount â€” not the entire likes array
         const codex = await Codex.findOne({ slug, isDeleted: false }).select('_id likesCount').lean();
         if (!codex) return res.status(404).json({ message: "Codex not found" });
 
-        // O(log n): MongoDB uses the array index to check existence — no JS iteration
+        // O(log n): MongoDB uses the array index to check existence â€” no JS iteration
         const isLiked = await Codex.exists({ _id: codex._id, likes: userId });
         const action = isLiked ? "unlike" : "like";
 
@@ -737,11 +737,11 @@ export const updateCodex = async (req, res) => {
 
     const userId = req.user._id || req.user.id;
 
-    console.log("✏️ UPDATE CODEX ATTEMPT:", { slug, userId });
+    console.log("âœï¸ UPDATE CODEX ATTEMPT:", { slug, userId });
 
     const codex = await Codex.findOne({ slug, isDeleted: false });
     if (!codex) {
-      console.log("❌ UPDATE CODEX FAILED: Codex not found in DB for slug:", slug);
+      console.log("âŒ UPDATE CODEX FAILED: Codex not found in DB for slug:", slug);
       return res.status(404).json({ message: "Codex not found" });
     }
 
@@ -901,7 +901,7 @@ export const getPopularTopics = async (req, res) => {
         }
       },
 
-      // Explode tags array — one document per tag
+      // Explode tags array â€” one document per tag
       { $unwind: "$tags" },
 
       // Normalize tags: lowercase and trim whitespace

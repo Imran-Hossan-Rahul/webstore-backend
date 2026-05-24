@@ -1,7 +1,7 @@
-// controllers/craftsmanController.js
+﻿// controllers/craftsmanController.js
 import User from "../models/User.model.js";
 import CraftsmanProfile from "../models/CraftsmanProfile.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import logger from "../utils/logger.js";
 import { generateAccessToken } from "../services/auth.service.js";
 import mongoose from "mongoose";

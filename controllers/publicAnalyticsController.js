@@ -1,7 +1,7 @@
-// Backend controller for public analytics endpoints
+﻿// Backend controller for public analytics endpoints
 import Artifact from "../models/Artifact.model.js";
 import User from "../models/User.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Sale from "../models/Sale.model.js";
 
 /**

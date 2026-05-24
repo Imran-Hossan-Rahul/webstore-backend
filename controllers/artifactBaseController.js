@@ -1,4 +1,4 @@
-import Codex from "../models/codex.model.js";
+﻿import Codex from "../models/Codex.model.js";
 import User from "../models/User.model.js";
 import Comment from "../models/Comment.model.js";
 import geoip from "geoip-lite";
@@ -142,7 +142,7 @@ export const getAllCodex = async (req, res) => {
 
     res.status(200).json(response);
   } catch (error) {
-    console.error("❌ GET ALL CODEXS ERROR:", error);
+    console.error("âŒ GET ALL CODEXS ERROR:", error);
     console.error("Stack:", error.stack);
     res.status(500).json({ message: "Server error", error: error.message });
   }

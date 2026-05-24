@@ -1,7 +1,7 @@
-import { favoriteQueue } from "../queues/favoriteQueue.js";
+﻿import { favoriteQueue } from "../queues/favoriteQueue.js";
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
-import Codex from "../models/codex.model.js";
+import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
 import Job from "../models/Job.model.js";
 import Challenge from "../models/Challenge.model.js";

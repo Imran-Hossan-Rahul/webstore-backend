@@ -1,4 +1,4 @@
-import User from "../models/User.model.js";
+﻿import User from "../models/User.model.js";
 import { generateUniqueUsername } from "../utils/generateUsername.js";
 import crypto from "crypto";
 import logger from "../utils/logger.js";
@@ -99,7 +99,7 @@ export const getPublicProfile = async (req, res) => {
     const isOwner = requesterId && requesterId.toString() === user._id.toString();
     const privacy = user.privacySettings || {};
 
-    // ── 1. Profile Visibility Check ──────────────────────────────────────────
+    // â”€â”€ 1. Profile Visibility Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let canSeeFullProfile = true;
     
     if (!isOwner) {
@@ -121,7 +121,7 @@ export const getPublicProfile = async (req, res) => {
       }
     }
 
-    // ── 2. Data Gating ───────────────────────────────────────────────────────
+    // â”€â”€ 2. Data Gating â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     
     // Basic data (always public unless private, but we show a placeholder for private)
     const data = {
@@ -291,7 +291,7 @@ export const getUserAchievements = async (req, res) => {
     const Post = (await import("../models/Post.model.js")).default;
     const devlogCount = await Post.countDocuments({ user: userId, postType: 'devlog', status: { $ne: 'deleted' } });
     
-    const Codex = (await import("../models/codex.model.js")).default;
+    const Codex = (await import("../models/Codex.model.js")).default;
     const codexCount = await Codex.countDocuments({ author: userId, isPublished: true, isDeleted: false });
 
     const achievements = [
@@ -500,7 +500,7 @@ export const setup2FA = async (req, res) => {
     });
     const qrCodeDataURL = await QRCode.toDataURL(otpauth);
 
-    // Store secret temporarily (not enabled yet — user must verify first)
+    // Store secret temporarily (not enabled yet â€” user must verify first)
     user.twoFactorSecret = secret;
     await user.save();
 
@@ -851,7 +851,7 @@ export const createApiToken = async (req, res) => {
 
     res.json({
       success: true,
-      message: "API token created. Copy it now — it won't be shown again.",
+      message: "API token created. Copy it now â€” it won't be shown again.",
       data: {
         _id:      savedToken._id,
         name:     savedToken.name,

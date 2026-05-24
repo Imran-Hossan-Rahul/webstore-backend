@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
 import User from "../models/User.model.js";
 import Session from "../models/Session.js";
@@ -15,7 +15,7 @@ import Event from "../models/Event.js";
 import UserBehaviorEvent from "../models/UserBehaviorEvent.model.js";
 // Graceful optional imports (may not exist in all environments)
 let Codex, Challenge, Chat;
-try { Codex = (await import("../models/codex.model.js")).default; } catch { Codex = null; }
+try { Codex = (await import("../models/Codex.model.js")).default; } catch { Codex = null; }
 try { Challenge = (await import("../models/Challenge.model.js")).default; } catch { Challenge = null; }
 try { Chat = (await import("../models/Chat.model.js")).default; } catch { Chat = null; }
 
@@ -554,7 +554,7 @@ export const getHourlyTraffic = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Get User Full Dossier — UPGRADED with deep intelligence
+ * @desc    Get User Full Dossier â€” UPGRADED with deep intelligence
  * @route   GET /api/v1/stats/user/:id/dossier
  * @access  Admin / SuperAdmin
  */
@@ -684,10 +684,10 @@ export const getUserFullDossierV2 = asyncHandler(async (req, res) => {
 
   // Unified Behavioral Timeline
   let timeline = [];
-  jobs.forEach(j => timeline.push({ title: "Job Deployed", description: `${j.title} · Budget: ${j.budget?.min || 0}-${j.budget?.max || 0} TKNS`, timestamp: j.createdAt, type: "job", severity: "major", icon: "Briefcase" }));
-  contracts.forEach(c => timeline.push({ title: "Contract Active", description: `${c.title} — ${c.status}`, timestamp: c.updatedAt, type: "contract", severity: "major", icon: "FileSignature" }));
+  jobs.forEach(j => timeline.push({ title: "Job Deployed", description: `${j.title} Â· Budget: ${j.budget?.min || 0}-${j.budget?.max || 0} TKNS`, timestamp: j.createdAt, type: "job", severity: "major", icon: "Briefcase" }));
+  contracts.forEach(c => timeline.push({ title: "Contract Active", description: `${c.title} â€” ${c.status}`, timestamp: c.updatedAt, type: "contract", severity: "major", icon: "FileSignature" }));
   transactions.forEach(t => timeline.push({ title: t.fromUser?._id?.toString() === id ? "Token Spent" : "Token Earned", description: `${t.amount} ${t.currency} via ${t.paymentMethod} (${t.status})`, timestamp: t.createdAt, type: "transaction", severity: "major", icon: "CreditCard" }));
-  verifications.forEach(v => timeline.push({ title: "Verification Event", description: `Status → ${v.status}`, timestamp: v.createdAt, type: "verification", severity: "major", icon: "ShieldCheck" }));
+  verifications.forEach(v => timeline.push({ title: "Verification Event", description: `Status â†’ ${v.status}`, timestamp: v.createdAt, type: "verification", severity: "major", icon: "ShieldCheck" }));
   activities.forEach(act => timeline.push({ title: act.activityType?.split("_").join(" ").toUpperCase() || "ACTIVITY", description: act.details || "System signal recorded", timestamp: act.timestamp || act.createdAt, type: "activity", severity: "minor", icon: "Activity" }));
   posts.forEach(p => timeline.push({ title: "Post Published", description: p.title?.slice(0, 60) || "Untitled", timestamp: p.createdAt, type: "post", severity: "minor", icon: "Layout" }));
   codex.forEach(b => timeline.push({ title: "Codex Written", description: b.title?.slice(0, 60) || "Untitled", timestamp: b.createdAt, type: "codex", severity: "minor", icon: "FileText" }));
@@ -804,10 +804,10 @@ export const getUserFullDossierV2 = asyncHandler(async (req, res) => {
         browserHistory: [user.browser, visitorRecord?.browser].filter(Boolean),
         riskScore,
         riskBreakdown: {
-          loginFailures: user.loginAttempts >= 3 ? "⚠️ High" : "✓ Normal",
-          accountLocked: (user.lockUntil && new Date(user.lockUntil) > new Date()) ? "🔴 Locked" : "✓ Open",
-          emailVerified: user.emailVerified ? "✓ Verified" : "⚠️ Unverified",
-          accountAge: accountAgeDays < 7 ? "⚠️ New Account" : "✓ Established",
+          loginFailures: user.loginAttempts >= 3 ? "âš ï¸ High" : "âœ“ Normal",
+          accountLocked: (user.lockUntil && new Date(user.lockUntil) > new Date()) ? "ðŸ”´ Locked" : "âœ“ Open",
+          emailVerified: user.emailVerified ? "âœ“ Verified" : "âš ï¸ Unverified",
+          accountAge: accountAgeDays < 7 ? "âš ï¸ New Account" : "âœ“ Established",
         },
       },
       financials: transactions,
