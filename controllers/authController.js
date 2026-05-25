@@ -23,7 +23,7 @@ const setTokenCookies = (res, accessToken, refreshTokenDoc, refreshToken) => {
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "Strict",
+    sameSite: NODE_ENV === "production" ? "none" : "lax",
     maxAge: 15 * 60 * 1000, // 15 minutes (match JWT_ACCESS_EXPIRY ideally)
   });
 
@@ -32,7 +32,7 @@ const setTokenCookies = (res, accessToken, refreshTokenDoc, refreshToken) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "Strict",
+    sameSite: NODE_ENV === "production" ? "none" : "lax",
     path: "/api/v1/auth/refresh-token",
     maxAge,
   });

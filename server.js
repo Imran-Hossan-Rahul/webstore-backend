@@ -309,7 +309,7 @@ const csrfProtection = (req, res, next) => {
     res.cookie("XSRF-TOKEN", csrfToken, {
       httpOnly: false, // Must be accessible by frontend to read and send back in header
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
   }
 
