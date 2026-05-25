@@ -336,8 +336,7 @@ const allowedOrigins = [
 // Add your production Vercel domain here
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN; // e.g., "your-app.vercel.app"
 
-app.use(
-  cors({
+const strictCors = cors({
     origin: function (origin, callback) {
       // 🔒 SECURITY FIX: In production, block requests with no origin (direct Postman/curl access)
       // In development, allow no-origin for local testing convenience
@@ -362,8 +361,16 @@ app.use(
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-  })
-);
+  });
+
+app.use((req, res, next) => {
+  // OAuth login routes are accessed directly via the browser and often lack an Origin header.
+  // We bypass the strict no-origin check for these specific routes.
+  if (req.path.startsWith('/api/v1/oauth')) {
+    return cors({ credentials: true, origin: true })(req, res, next);
+  }
+  return strictCors(req, res, next);
+});
 app.use(compression());
 
 app.use(express.json({ limit: "50mb" }));
