@@ -120,14 +120,16 @@ global.__onlineUsers = onlineUsers;
 io.use((socket, next) => {
   const token = socket.handshake.auth.token || socket.handshake.headers?.cookie?.split('token=')?.[1]?.split(';')?.[0];
   if (!token) {
-    return next(new Error("Authentication error"));
+    socket.user = null;
+    return next();
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.user = decoded; // Attach user to socket
     next();
   } catch (err) {
-    next(new Error("Authentication error"));
+    socket.user = null;
+    next();
   }
 });
 
