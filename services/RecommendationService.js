@@ -302,6 +302,11 @@ class RecommendationService {
         score += Math.log10(popularity + 1) * 50;
     }
 
+    // ðŸš€ DEVLOG BOOST: Prioritize devlogs at the beginning of the feed
+    if (item.type === 'devlog') {
+        score += 5000; // Massive boost
+    }
+
     return score;
   }
 
