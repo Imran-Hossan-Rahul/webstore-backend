@@ -266,6 +266,12 @@ const userSchema = new Schema(
 // Add text index for efficient searching
 userSchema.index({ name: 'text', username: 'text', email: 'text', bio: 'text', skills: 'text' });
 
+// ✅ OPTIMIZATION: Missing compound indexes for admin and analytics queries
+userSchema.index({ role: 1, isActive: 1, createdAt: -1 }); // admin user listing
+userSchema.index({ createdAt: -1 });                        // user growth analytics
+userSchema.index({ isActive: 1, createdAt: -1 });           // active users filter
+
+
 // -------- Password Validation & Hashing ----------
 userSchema.path("password").validate(function (value) {
   // Only validate complexity if the password is being modified (is plain text)

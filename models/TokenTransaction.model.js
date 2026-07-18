@@ -52,5 +52,10 @@ tokenTransactionSchema.pre("save", function(next) {
   next();
 });
 
+// ✅ OPTIMIZATION: Compound indexes for wallet history queries
+tokenTransactionSchema.index({ user: 1, createdAt: -1 }); // wallet history (most common query)
+tokenTransactionSchema.index({ user: 1, type: 1 });        // filter by earn/spend type
+
 const TokenTransaction = mongoose.models.TokenTransaction || mongoose.model("TokenTransaction", tokenTransactionSchema);
 export default TokenTransaction;
+

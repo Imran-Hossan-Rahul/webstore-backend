@@ -188,6 +188,12 @@ postSchema.index({ user: 1, createdAt: -1 });
 postSchema.index({ postType: 1, status: 1, createdAt: -1 });
 postSchema.index({ title: "text", content: "text", tags: "text", "devlogStats.tools": "text" });
 
+// ✅ OPTIMIZATION: Missing indexes for tag/category filtering
+postSchema.index({ tags: 1 });                               // tag-based feed
+postSchema.index({ category: 1, createdAt: -1 });           // category feed
+postSchema.index({ status: 1, likes: -1 });                 // popular posts filter
+
+
 const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
 
 export default Post;

@@ -125,7 +125,7 @@ const seedArtifacts = async () => {
         cardShape: "rectangle-vertical",
         priceType: "free",
         price: 0,
-        previewFile: "https://images.unsplash.com/photo-1555949963-aa79dcee57d5?auto=format&fit=crop&w=800&q=80",
+        previewFile: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
         devlogFile: "quantum-auth.zip",
         versions: [{ version: "v1.5.0", changelog: "Added Magic Link support" }],
         viewsCount: 12000,

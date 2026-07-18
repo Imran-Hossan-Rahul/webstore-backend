@@ -1,10 +1,11 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
 import Follow from "../models/Follow.model.js";
 import logger from "../utils/logger.js";
+import redis from "../utils/redisClient.js"; // ✅ OPTIMIZATION: Added redis client
 
 /**
  * ðŸš€ OPTIMIZED RECOMMENDATION SERVICE
@@ -44,9 +45,19 @@ class RecommendationService {
     try {
       const fetchStart = Date.now();
       
-      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-      // ðŸš€ STEP 1: Fetch User Context (OPTIMIZED with Sets)
-      // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      // ✅ OPTIMIZATION: Redis Cache Check
+      const cacheKey = `feed:v1:${userId || 'anon'}:${type || 'all'}:${view}:${page}:${limit}`;
+      const cachedFeed = await redis.get(cacheKey);
+      
+      if (cachedFeed) {
+        const parsed = JSON.parse(cachedFeed);
+        logger.info(`Feed served from cache in ${Date.now() - fetchStart}ms (${parsed.data.length} items)`);
+        return parsed;
+      }
+      
+      // ══════════════════════════════════════════════════════════════════════
+      // 🚀 STEP 1: Fetch User Context (OPTIMIZED with Sets)
+      // ══════════════════════════════════════════════════════════════════════
       
       let userContext = {
         following: new Set(),
@@ -194,9 +205,10 @@ class RecommendationService {
       const mappedFeed = finalSelection.map(item => this.normalizeItem(item, userId, userContext));
 
       const fetchEnd = Date.now();
-      logger.info(`Feed generated in ${fetchEnd - fetchStart}ms for ${mappedFeed.length} items`);
+      const generationTime = fetchEnd - fetchStart;
+      logger.info(`Feed generated in ${generationTime}ms for ${mappedFeed.length} items`);
 
-      return {
+      const result = {
         data: mappedFeed,
         hasMore: scoredItems.length > startIndex + limit,
         meta: {
@@ -204,10 +216,17 @@ class RecommendationService {
           totalScored: scoredItems.length,
           page,
           limit,
-          generationTime: fetchEnd - fetchStart
+          generationTime,
+          cached: false
         }
       };
 
+      // ✅ OPTIMIZATION: Save feed to Redis Cache (30s TTL)
+      // We set cached: true in the cached version so we know when it was served from cache
+      const cacheData = { ...result, meta: { ...result.meta, cached: true } };
+      await redis.set(cacheKey, JSON.stringify(cacheData), "EX", 30);
+
+      return result;
     } catch (error) {
       logger.error("Feed Generation Error:", error);
       throw error;

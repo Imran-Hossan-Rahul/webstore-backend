@@ -7,18 +7,22 @@ const requiredEnvs = [
   "JWT_SECRET_ACCESS_TOKEN",
   "JWT_SECRET_REFRESH_TOKEN",
   "MONGODB_URI",
-  "ENCRYPTION_KEY",
   "CLIENT_URL",
-  "NODE_ENV",
-  "PORT",
-  "CLOUDINARY_CLOUD_NAME",
-  "CLOUDINARY_API_KEY",
-  "CLOUDINARY_API_SECRET",
-  "SMTP_HOST",
-  "SMTP_PORT",
-  "SMTP_USER",
-  "SMTP_PASS",
+  "PORT"
 ];
+
+if (process.env.NODE_ENV === "production") {
+  requiredEnvs.push(
+    "ENCRYPTION_KEY",
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASS"
+  );
+}
 
 requiredEnvs.forEach((env) => {
   if (!process.env[env]) {

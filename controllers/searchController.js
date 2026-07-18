@@ -1,9 +1,10 @@
-﻿import User from "../models/User.model.js";
+import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Artifact from "../models/Artifact.model.js";
 import Codex from "../models/Codex.model.js";
 import Job from "../models/Job.model.js";
 import Challenge from "../models/Challenge.model.js";
+import MarketProduct from "../models/MarketProduct.model.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -83,14 +84,20 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
         const regex = new RegExp(textQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
         
         // 1. Try Optimized Text Search First
-        const textResults = await model.find(
-            { ...finalFilter, $text: { $search: textQuery } },
-            { score: { $meta: "textScore" } }
-        )
-        .sort({ score: { $meta: "textScore" } })
-        .limit(limit)
-        .populate(populate || "")
-        .lean();
+        let textResults = [];
+        try {
+            textResults = await model.find(
+                { ...finalFilter, $text: { $search: textQuery } },
+                { score: { $meta: "textScore" } }
+            )
+            .sort({ score: { $meta: "textScore" } })
+            .limit(limit)
+            .populate(populate || "")
+            .lean();
+        } catch (e) {
+            // Text index might be missing, fail silently and rely on regex
+            textResults = [];
+        }
 
         // 2. Conditional Regex Fallback
         let regexResults = [];
@@ -121,7 +128,7 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
 
 export const globalSearch = async (req, res) => {
   try {
-    const { q, verifiedOnly } = req.query;
+    const { q, verifiedOnly, type } = req.query;
     if (!q || q.trim() === "") {
       return res.status(400).json({ success: false, message: "Query is required" });
     }
@@ -164,14 +171,20 @@ export const globalSearch = async (req, res) => {
         return f;
     };
 
-    const userFilter = buildFilter(isVerifiedOnly ? { isVerified: true } : {}, null, false, false);
-    const postFilter = buildFilter({ status: "active" }, "user", true, true);
-    const artifactFilter = buildFilter({ isActive: true }, "user", true, true);
-    const codexFilter = buildFilter({ isPublished: true, isDeleted: false }, "author", true, true);
-    const jobFilter = buildFilter({ status: "open" }, "patron", true, true);
-    const challengeFilter = buildFilter({ status: { $in: ["active", "published", "registration_open", "submissions_open"] } }, null, true, true);
+    const isTypeAllowed = (modelType) => {
+        if (!type || type === 'all') return true;
+        return type === modelType;
+    };
 
-    const [users, posts, artifacts, codex, jobs, challenges] = await Promise.all([
+    const userFilter = isTypeAllowed('patrons') ? buildFilter(isVerifiedOnly ? { isVerified: true } : {}, null, false, false) : false;
+    const postFilter = isTypeAllowed('posts') ? buildFilter({ status: "active" }, "user", true, true) : false;
+    const artifactFilter = isTypeAllowed('artifacts') ? buildFilter({ isActive: true }, "user", true, true) : false;
+    const codexFilter = isTypeAllowed('codex') ? buildFilter({ isPublished: true, isDeleted: false }, "author", true, true) : false;
+    const jobFilter = isTypeAllowed('jobs') ? buildFilter({ status: "open" }, "patron", true, true) : false;
+    const challengeFilter = isTypeAllowed('challenges') ? buildFilter({ status: { $in: ["active", "published", "registration_open", "submissions_open"] } }, null, true, true) : false;
+    const marketFilter = isTypeAllowed('marketplace') ? buildFilter({ status: "Live" }, null, true, true) : false;
+
+    const [users, posts, artifacts, codex, jobs, challenges, marketplace] = await Promise.all([
       searchModel(User, parsedQuery.text, parsedQuery.exact, ['name', 'username'], userFilter, null, 10),
       
       searchModel(Post, parsedQuery.text, parsedQuery.exact, ['title', 'tags'], postFilter, {
@@ -190,13 +203,15 @@ export const globalSearch = async (req, res) => {
         path: "patron", select: "name profilePicture isVerified", match: isVerifiedOnly ? { isVerified: true } : {}
       }, 15).then(results => results.filter(r => r.patron)),
 
-      searchModel(Challenge, parsedQuery.text, parsedQuery.exact, ['title', 'tags', 'category'], challengeFilter, null, 15)
+      searchModel(Challenge, parsedQuery.text, parsedQuery.exact, ['title', 'tags', 'category'], challengeFilter, null, 15),
+
+      searchModel(MarketProduct, parsedQuery.text, parsedQuery.exact, ['title', 'tags', 'category', 'brand'], marketFilter, null, 15)
     ]);
 
     res.status(200).json({
       success: true,
-      data: { users, posts, artifacts, codex, jobs, challenges },
-      meta: { searchMethod: "robust_hybrid_advanced_search", totalResults: users.length + posts.length + artifacts.length + codex.length + jobs.length + challenges.length }
+      data: { users, posts, artifacts, codex, jobs, challenges, marketplace },
+      meta: { searchMethod: "robust_hybrid_advanced_search", totalResults: users.length + posts.length + artifacts.length + codex.length + jobs.length + challenges.length + marketplace.length }
     });
 
   } catch (error) {

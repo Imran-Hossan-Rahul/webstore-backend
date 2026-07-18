@@ -1,3 +1,4 @@
+import mongoose from "mongoose"; // ✅ OPTIMIZATION: Import mongoose for transactions
 import Contract from "../models/Contract.model.js";
 import User from "../models/User.model.js";
 import Transaction from "../models/Transaction.model.js";
@@ -100,66 +101,79 @@ class ContractService {
      */
     static async fundEscrow(contractId, userId, amount, milestoneIds) {
         const numAmount = Number(amount);
-        const contract = await Contract.findById(contractId);
         
-        if (!contract || contract.patron.toString() !== userId.toString()) {
-            throw new Error("Unauthorized or contract not found");
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            const contract = await Contract.findById(contractId).session(session);
+            
+            if (!contract || contract.patron.toString() !== userId.toString()) {
+                throw new Error("Unauthorized or contract not found");
+            }
+
+            // Atomic Balance Check & Deduction within transaction
+            const patron = await User.findOneAndUpdate(
+                { _id: userId, walletBalance: { $gte: numAmount } },
+                { $inc: { walletBalance: -numAmount } },
+                { new: true, session }
+            );
+
+            if (!patron) {
+                throw new Error(`Insufficient wallet balance. Need ${numAmount} TKNS.`);
+            }
+
+            // Update Escrow
+            contract.escrowBalance += numAmount;
+            
+            if (milestoneIds && milestoneIds.length > 0) {
+                milestoneIds.forEach(mId => {
+                    const milestone = contract.milestones.id(mId);
+                    if (milestone && !milestone.isFunded) {
+                        milestone.isFunded = true;
+                        milestone.amountFunded = parseAmount(milestone.amount);
+                        milestone.status = "funded";
+                    }
+                });
+            }
+
+            const totalFunded = contract.milestones.reduce((sum, m) => sum + (m.amountFunded || 0), 0);
+            const totalAgreed = parseAmount(contract.agreedBudget);
+
+            contract.paymentStatus = totalFunded >= totalAgreed ? "fully_funded" : "partially_funded";
+            contract.lastActionAt = new Date();
+
+            await contract.save({ session });
+
+            // Log Transactions
+            await Transaction.create([{
+                contract: contract._id,
+                fromUser: userId,
+                amount: numAmount,
+                type: "deposit",
+                status: "completed",
+                paymentGateway: "token_internal",
+                metadata: { milestoneIds }
+            }], { session });
+
+            await TokenTransaction.create([{
+                user: userId,
+                amount: numAmount,
+                type: "spend",
+                source: "contract_escrow",
+                description: `Funded escrow for contract: ${contract.title}`,
+                metadata: { contractId: contract._id }
+            }], { session });
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return contract;
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw error;
         }
-
-        // Atomic Balance Check & Deduction
-        const patron = await User.findOneAndUpdate(
-            { _id: userId, walletBalance: { $gte: numAmount } },
-            { $inc: { walletBalance: -numAmount } },
-            { new: true }
-        );
-
-        if (!patron) {
-            throw new Error(`Insufficient wallet balance. Need ${numAmount} TKNS.`);
-        }
-
-        // Update Escrow
-        contract.escrowBalance += numAmount;
-        
-        if (milestoneIds && milestoneIds.length > 0) {
-            milestoneIds.forEach(mId => {
-                const milestone = contract.milestones.id(mId);
-                if (milestone && !milestone.isFunded) {
-                    milestone.isFunded = true;
-                    milestone.amountFunded = parseAmount(milestone.amount);
-                    milestone.status = "funded";
-                }
-            });
-        }
-
-        const totalFunded = contract.milestones.reduce((sum, m) => sum + (m.amountFunded || 0), 0);
-        const totalAgreed = parseAmount(contract.agreedBudget);
-
-        contract.paymentStatus = totalFunded >= totalAgreed ? "fully_funded" : "partially_funded";
-        contract.lastActionAt = new Date();
-
-        await contract.save();
-
-        // Log Transactions
-        await Transaction.create({
-            contract: contract._id,
-            fromUser: userId,
-            amount: numAmount,
-            type: "deposit",
-            status: "completed",
-            paymentGateway: "token_internal",
-            metadata: { milestoneIds }
-        });
-
-        await TokenTransaction.create({
-            user: userId,
-            amount: numAmount,
-            type: "spend",
-            source: "contract_escrow",
-            description: `Funded escrow for contract: ${contract.title}`,
-            metadata: { contractId: contract._id }
-        });
-
-        return contract;
     }
 }
 

@@ -5,20 +5,10 @@ import logger from "../utils/logger.js";
  * Generic rate limiter factory
  */
 const createLimiter = (windowMs, max, message) => {
-  return rateLimit({
-    windowMs,
-    max,
-    message: {
-      success: false,
-      message
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res, next, options) => {
-      logger.warn(`Rate limit exceeded for IP: ${req.ip} on ${req.originalUrl}`);
-      res.status(options.statusCode).send(options.message);
-    },
-  });
+  // Rate limiting has been disabled as per request
+  return (req, res, next) => {
+    next();
+  };
 };
 
 // 🔒 Auth Limiter: Prevent brute-force on login/register

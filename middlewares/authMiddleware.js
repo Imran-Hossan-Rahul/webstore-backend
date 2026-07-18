@@ -4,6 +4,8 @@ import asyncHandler from "express-async-handler";
 import User from "../models/User.model.js" // তোমার User model path ঠিক করে নাও
 import Artifact from "../models/Artifact.model.js";
 import { JWT_ACCESS_SECRET } from "../config/index.js";
+import logger from "../utils/logger.js"; // ✅ FIX: was missing — caused ReferenceError in craftsmanOnly
+
 
 // --------------------
 // Protect routes - only authenticated users
@@ -31,7 +33,10 @@ export const protect = asyncHandler(async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
 
     // 🔹 User find
+    // ✅ FIX: +isSuperAdmin needed because it has select:false in schema
+    // Without this, generateAccessToken() would always set isSuperAdmin: false after a token refresh
     const user = await User.findById(decoded.id).select("-password +isSuperAdmin");
+
     if (!user) {
       return res
         .status(401)
@@ -43,9 +48,16 @@ export const protect = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (err) {
+    // If it's a JWT error (expired, invalid signature, etc), return 401.
+    // If it's a DB connection error during server restart, return 500 so frontend doesn't log out.
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authorized, token failed" });
+    }
     return res
-      .status(401)
-      .json({ success: false, message: "Not authorized, token failed" });
+      .status(500)
+      .json({ success: false, message: "Internal server error during authentication" });
   }
 });
 

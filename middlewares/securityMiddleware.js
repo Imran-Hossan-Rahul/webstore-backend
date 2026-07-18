@@ -69,13 +69,13 @@ export const sanitizeInput = (req, res, next) => {
             'td': ['colspan', 'rowspan'],
             'col': ['span']
           },
-          allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel', 'data'],
+          allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel'], // ✅ FIX: removed 'data:' global scheme — XSS vector
           allowedSchemesByTag: {
-            img: ['http', 'https', 'data'],
+            img: ['http', 'https', 'data'],   // data: allowed only for inline images
             video: ['http', 'https', 'data'],
             audio: ['http', 'https', 'data']
           },
-          allowVulnerableTags: true // to allow iframes if needed
+          allowVulnerableTags: false // ✅ FIX: was true — now enforces strict attribute rules on iframe/video
         }).trim();
       }
 

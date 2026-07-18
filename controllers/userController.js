@@ -1,4 +1,4 @@
-﻿import User from "../models/User.model.js";
+import User from "../models/User.model.js";
 import { generateUniqueUsername } from "../utils/generateUsername.js";
 import crypto from "crypto";
 import logger from "../utils/logger.js";
@@ -20,6 +20,11 @@ import TokenTransaction from "../models/TokenTransaction.model.js";
  */
 export const getUserProfile = async (req, res) => {
     try {
+      if (!req.user) {
+        // Return 200 OK with null data instead of 401 to prevent console red errors for guests
+        return res.json({ success: true, data: null });
+      }
+
       const user = await User.findById(req.user._id)
           .populate("craftsmanProfileId", "profilePicture");
   
@@ -223,9 +228,10 @@ export const updateUserProfile = async (req, res) => {
        user.hasCompletedOnboarding = req.body.hasCompletedOnboarding;
     }
 
-    if (req.body.password) {
-      user.password = req.body.password;
-    }
+    // ✅ SECURITY FIX: Password change removed from profile update.
+    // Use the dedicated /change-password endpoint which requires current password verification.
+    // Silently ignore any `password` field sent here to prevent accidental exposure.
+
 
     const updatedUser = await user.save();
     res.json({ success: true, data: updatedUser });

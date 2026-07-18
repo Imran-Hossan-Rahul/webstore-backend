@@ -131,6 +131,13 @@ jobSchema.index(
   }
 );
 
+// ✅ OPTIMIZATION: Added compound indexes for common query patterns
+jobSchema.index({ patron: 1, createdAt: -1 });          // patron's own jobs
+jobSchema.index({ status: 1, createdAt: -1 });          // open/active job listings
+jobSchema.index({ status: 1, category: 1, createdAt: -1 }); // filtered job board
+jobSchema.index({ deadline: 1 }, { sparse: true });     // deadline-approaching filter
+
 const Job = mongoose.models.Job || mongoose.model("Job", jobSchema);
 
 export default Job;
+

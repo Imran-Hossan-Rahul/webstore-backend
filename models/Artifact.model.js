@@ -178,6 +178,18 @@ artifactSchema.index({ priceType: 1, status: 1 });
 artifactSchema.index({ slugHash: 1 });
 artifactSchema.index({ purchasedBy: 1 }); // Optimize ownership checks
 
+// ✅ OPTIMIZATION: Missing indexes added
+artifactSchema.index({ user: 1, isActive: 1, createdAt: -1 });       // getUserArtifacts
+artifactSchema.index({ isActive: 1, status: 1, createdAt: -1 });     // main listing filter
+artifactSchema.index({ trendingScore: -1, isActive: 1 });            // trending sort
+artifactSchema.index({ popularityScore: -1, isActive: 1 });          // popular sort
+artifactSchema.index({ score: -1, isActive: 1 });                    // general ranking
+artifactSchema.index({ editorsChoice: 1, isActive: 1 });             // editors choice
+artifactSchema.index({ trending: 1, isActive: 1 });                  // trending flag
+artifactSchema.index({ popular: 1, isActive: 1 });                   // popular flag
+artifactSchema.index({ category: 1, status: 1, createdAt: -1 });    // category filter
+
+
 /* ---------- Methods ---------- */
 artifactSchema.methods.addAuditLog = async function (action, ip, userAgent, actorId, byAdmin = false) {
   try {

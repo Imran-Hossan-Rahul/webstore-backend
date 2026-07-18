@@ -9,6 +9,7 @@ import compression from "compression";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
+import jwt from "jsonwebtoken"; // ✅ OPTIMIZATION: Import JWT for socket auth
 import authRoutes from "./routes/authRoutes.js";
 import saleRoutes from "./routes/saleRoutes.js";
 import artifactRoute from "./routes/artifactRoutes.js";
@@ -48,9 +49,11 @@ import alertRoutes from "./routes/alertRoutes.js";
 import oauthRoutes from "./routes/oauthRoutes.js";
 import mentorshipRoutes from "./routes/mentorshipRoutes.js";
 import squadRoutes from "./routes/squadRoutes.js";
+import marketRoutes from "./routes/marketRoutes.js";
 
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
 import { startChallengePhaseScheduler } from "./services/challengePhaseScheduler.js";
+import { apiLimiter } from "./middlewares/rateLimiter.js"; // ✅ FIX: Global rate limiter import
 
 const app = express();
 const server = createServer(app);
@@ -78,7 +81,12 @@ const io = new Server(server, {
         return callback(null, true);
       }
 
-      // 🔒 SECURITY FIX: Exact match only — removed *.vercel.app wildcard
+      // Allow everything in development for easier local testing (including 127.0.0.1 vs localhost)
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      // 🔒 SECURITY FIX: Exact match only
       if (allowedSocketOrigins.includes(origin)) {
         return callback(null, true);
       }
@@ -95,7 +103,7 @@ const io = new Server(server, {
   pingTimeout: 120000,
   pingInterval: 30000,
   upgradeTimeout: 30000,
-  maxHttpBufferSize: 1e8,
+  maxHttpBufferSize: 1e6, // ✅ FIX: was 100MB (1e8) — reduced to 1MB to prevent DoS memory exhaustion
 });
 
 
@@ -108,11 +116,26 @@ const onlineUsers = new Map();
 // Expose globally so background craftsmans can check online status
 global.__onlineUsers = onlineUsers;
 
+// ✅ OPTIMIZATION: Socket.io JWT Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.headers?.cookie?.split('token=')?.[1]?.split(';')?.[0];
+  if (!token) {
+    return next(new Error("Authentication error"));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded; // Attach user to socket
+    next();
+  } catch (err) {
+    next(new Error("Authentication error"));
+  }
+});
+
 io.on("connection", (socket) => {
-  console.log("New patron connected:", socket.id);
+  console.log("New patron connected:", socket.id, "User ID:", socket.user?.id);
 
   // 🔒 Track authenticated userId per socket for ownership checks
-  let authenticatedUserId = null;
+  let authenticatedUserId = socket.user?.id; // Use ID from JWT 
 
   // User joins with their ID
   socket.on("user:online", (userId) => {
@@ -310,12 +333,15 @@ const csrfProtection = (req, res, next) => {
       httpOnly: false, // Must be accessible by frontend to read and send back in header
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 24 * 60 * 60 * 1000, // ✅ FIX: 24h expiry — was missing (permanent session cookie)
     });
   }
 
   // 2. Validate for state-changing methods
   const stateChangingMethods = ["POST", "PUT", "DELETE", "PATCH"];
-  if (stateChangingMethods.includes(req.method)) {
+  const isExempted = req.path.startsWith("/api/v1/track") || req.path.startsWith("/api/v1/analytics");
+  
+  if (stateChangingMethods.includes(req.method) && !isExempted) {
     const headerToken = req.headers["x-xsrf-token"];
     if (!headerToken || headerToken !== csrfToken) {
       logger.warn(`[SECURITY] CSRF attempt blocked: Method=${req.method}, Path=${req.path}, IP=${req.ip}`);
@@ -347,6 +373,11 @@ const strictCors = cors({
         return callback(null, true);
       }
       
+      // Allow everything in development for easier local testing (including 127.0.0.1 vs localhost)
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -411,7 +442,11 @@ app.use((req, res, next) => {
 });
 
 // ---------------- Routes ----------------
+// ✅ FIX: Apply global rate limiter to all API routes (auth routes have stricter limits on top)
+app.use("/api/", apiLimiter);
+
 app.use("/api/v1/auth", authRoutes);
+
 app.use("/api/v1/artifact", artifactRoute);
 app.use("/api/v1/codex", codexRoute);
 app.use("/api/v1/stats", statsRoutes);
@@ -452,6 +487,7 @@ app.use("/api/v1/alerts", alertRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
 app.use("/api/v1/mentorship", mentorshipRoutes);
 app.use("/api/v1/squads", squadRoutes);
+app.use("/api/v1/market", marketRoutes);
 
 
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));

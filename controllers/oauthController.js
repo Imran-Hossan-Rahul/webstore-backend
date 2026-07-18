@@ -1,5 +1,6 @@
 // controllers/oauthController.js
 // OAuth "Connect Account" & "Direct Login" flows — GitHub & Google
+import crypto from "crypto"; // ✅ FIX: needed for CSRF state nonces
 import User from "../models/User.model.js";
 import logger from "../utils/logger.js";
 import { generateAccessToken, generateRefreshToken } from "../services/auth.service.js";
@@ -12,22 +13,21 @@ const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const BACKEND_URL          = process.env.BACKEND_URL || "http://localhost:5000";
 
-// ---- Helpers for setting cookies (matching authController) ----
+// ✅ FIX: sameSite changed from 'Strict' to 'Lax'
+// 'Strict' blocks cookies on OAuth cross-site redirects, breaking the flow entirely.
 const setTokenCookies = (res, accessToken, refreshTokenDoc, refreshToken) => {
-  // Access Token Cookie
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "Strict",
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    sameSite: "Lax", // ✅ FIX: was 'Strict' — breaks OAuth cross-site redirect cookie setting
+    maxAge: 15 * 60 * 1000,
   });
 
-  // Refresh Token Cookie
   const maxAge = refreshTokenDoc.expiresAt.getTime() - Date.now();
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "Strict",
+    sameSite: "Lax", // ✅ FIX: was 'Strict'
     path: "/api/v1/auth/refresh-token",
     maxAge,
   });
@@ -64,7 +64,9 @@ export const githubLoginRedirect = (req, res) => {
   }
   const redirectUri = `${BACKEND_URL}/api/v1/oauth/github/callback`;
   const scope = "read:user user:email";
-  const state = JSON.stringify({ action: "login" });
+  // ✅ FIX: Added random nonce to state to prevent OAuth CSRF attacks
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const state = JSON.stringify({ action: "login", nonce });
 
   const url = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
   res.redirect(url);
@@ -213,7 +215,9 @@ export const googleLoginRedirect = (req, res) => {
     return res.status(501).json({ success: false, message: "Google OAuth not configured" });
   }
   const redirectUri = `${BACKEND_URL}/api/v1/oauth/google/callback`;
-  const state = JSON.stringify({ action: "login" });
+  // ✅ FIX: Added random nonce to state to prevent OAuth CSRF attacks
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const state = JSON.stringify({ action: "login", nonce });
   const scope = encodeURIComponent("openid email profile");
 
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}&access_type=offline`;

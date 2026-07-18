@@ -60,7 +60,11 @@ const commentSchema = new mongoose.Schema(
 );
 
 commentSchema.index({ codex: 1, createdAt: -1 });
+// ✅ OPTIMIZATION: Added missing compound indexes for comment listing
+commentSchema.index({ artifact: 1, createdAt: -1 }); // getArtifactComments — was full scan!
+commentSchema.index({ post: 1, createdAt: -1 });      // getPostComments
 
 export default mongoose.models.Comment || mongoose.model("Comment", commentSchema);
+
 
 

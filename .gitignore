@@ -6,3 +6,5 @@ temp/
 logs/
 .DS_Store
 *.log
+
+/generated/prisma

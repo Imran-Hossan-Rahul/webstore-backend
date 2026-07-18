@@ -1,9 +1,10 @@
-﻿import { Worker as Craftsman } from "bullmq";
+import { Worker as Craftsman } from "bullmq";
 import redis from "../config/redis.js";
 import mongoose from "mongoose";
 import Post from "../models/Post.model.js";
 import Codex from "../models/Codex.model.js";
 import Artifact from "../models/Artifact.model.js";
+import MarketProduct from "../models/MarketProduct.model.js";
 
 
 
@@ -21,7 +22,7 @@ const craftsman = new Craftsman(
       throw new Error("Missing parameters: postId or userId");
     }
 
-    const Model = itemType === "codex" ? Codex : itemType === "artifact" ? Artifact : Post;
+    const Model = itemType === "codex" ? Codex : itemType === "artifact" ? Artifact : itemType === "product" ? MarketProduct : Post;
     const countField = itemType === "codex" ? "likesCount" : itemType === "artifact" ? "likeCount" : "likes";
     const arrayField = itemType === "codex" ? "likes" : "likedBy";
 

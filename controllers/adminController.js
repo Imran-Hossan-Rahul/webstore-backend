@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
 import User from "../models/User.model.js";
 import Session from "../models/Session.js";
@@ -9,6 +9,8 @@ import Post from "../models/Post.model.js";
 import Transaction from "../models/Transaction.model.js";
 import Contract from "../models/Contract.model.js";
 import SocialActivity from "../models/SocialActivity.model.js";
+// ✅ FIX: 'Activity' was used at lines 199 & 589 but never imported — alias SocialActivity
+const Activity = SocialActivity;
 import Comment from "../models/Comment.model.js";
 import Artifact from "../models/Artifact.model.js";
 import Event from "../models/Event.js";

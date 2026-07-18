@@ -152,5 +152,13 @@ const contractSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ OPTIMIZATION: Contract had zero indexes — all dashboard queries were full collection scans
+contractSchema.index({ patron: 1, status: 1, createdAt: -1 });    // patron dashboard
+contractSchema.index({ craftsman: 1, status: 1, createdAt: -1 }); // craftsman dashboard
+contractSchema.index({ job: 1 });                                   // job → contract lookup
+contractSchema.index({ status: 1, createdAt: -1 });                // admin contract listing
+contractSchema.index({ paymentStatus: 1 });                         // unfunded contracts filter
+
 const Contract = mongoose.model("Contract", contractSchema);
 export default Contract;
+

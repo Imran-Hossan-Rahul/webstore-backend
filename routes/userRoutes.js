@@ -1,6 +1,7 @@
 import express from "express";
 import { protect, optionalProtect } from "../middlewares/authMiddleware.js";
 import { allowRoles } from "../middlewares/rolesMiddleware.js";
+import { cacheMiddleware } from "../utils/cache.js";
 
 import { 
   updateUserProfile, 
@@ -42,8 +43,9 @@ const router = express.Router();
 router.get("/featured-craftsmen", getFeaturedCraftsmen);
 
 // Profile Routes
-router.route("/profile").get(protect, getUserProfile).patch(protect, updateUserProfile);
-router.get("/profile/:username", getPublicProfile);
+router.get("/profile", optionalProtect, getUserProfile);
+router.patch("/profile", protect, updateUserProfile);
+router.get("/profile/:username", cacheMiddleware(300), getPublicProfile);
 router.get("/achievements", protect, getUserAchievements);
 router.get("/xp-history", protect, getXPHistory);
 router.get("/leaderboard", getLeaderboard);
