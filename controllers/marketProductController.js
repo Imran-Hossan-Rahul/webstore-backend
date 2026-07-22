@@ -7,10 +7,26 @@ import logger from '../utils/logger.js';
 
 export const getProducts = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 1000; // Large default for backwards compatibility
+    const skip = (page - 1) * limit;
+    
+    let query = {};
+    if (req.query.ids) {
+        const idArray = req.query.ids.split(',');
+        query._id = { $in: idArray };
+    }
+
     // We use .lean() for maximum performance and .populate for joins
-    const products = await MarketProduct.find()
-      .populate('wholesaler_id')
-      .lean();
+    const [products, total] = await Promise.all([
+        MarketProduct.find(query)
+          .populate('wholesaler_id')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        MarketProduct.countDocuments(query)
+    ]);
     
     // Map _id to id for frontend compatibility
     const mappedProducts = products.map(p => ({
@@ -19,7 +35,14 @@ export const getProducts = async (req, res) => {
       wholesaler: p.wholesaler_id ? { ...p.wholesaler_id, id: p.wholesaler_id._id } : null
     }));
     
-    res.json(mappedProducts);
+    res.json({
+        data: mappedProducts,
+        pagination: {
+            total,
+            pages: Math.ceil(total / limit),
+            currentPage: page
+        }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
