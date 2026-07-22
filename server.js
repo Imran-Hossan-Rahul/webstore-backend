@@ -445,6 +445,11 @@ app.use((req, res, next) => {
 
 // ---------------- Routes ----------------
 // ✅ FIX: Apply global rate limiter to all API routes (auth routes have stricter limits on top)
+// ✅ KEEP-ALIVE PING ROUTE
+app.get("/api/ping", (req, res) => {
+  res.status(200).json({ status: "awake", timestamp: new Date() });
+});
+
 app.use("/api/", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);
