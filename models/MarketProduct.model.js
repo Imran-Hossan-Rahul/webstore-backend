@@ -15,6 +15,9 @@ const marketProductSchema = new mongoose.Schema({
   category_id: {
     type: String,
   },
+  subCategory_id: {
+    type: String,
+  },
   sku: {
     type: String,
   },

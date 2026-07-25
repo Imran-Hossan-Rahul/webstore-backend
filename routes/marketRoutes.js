@@ -4,6 +4,7 @@ import * as productController from '../controllers/marketProductController.js';
 import * as orderController from '../controllers/marketOrderController.js';
 import * as procurementController from '../controllers/marketProcurementController.js';
 import * as bannerController from '../controllers/marketBannerController.js';
+import * as categoryController from '../controllers/marketCategoryController.js';
 
 import { protect, adminOnly, optionalProtect } from '../middlewares/authMiddleware.js';
 import { cacheMiddleware } from '../utils/cache.js';
@@ -17,6 +18,13 @@ router.get('/banners/all', protect, adminOnly, bannerController.getAllBanners);
 router.post('/banners', protect, adminOnly, marketMediaUpload.single('image'), bannerController.createBanner);
 router.put('/banners/:id', protect, adminOnly, marketMediaUpload.single('image'), bannerController.updateBanner);
 router.delete('/banners/:id', protect, adminOnly, bannerController.deleteBanner);
+
+// Categories
+router.get('/categories', cacheMiddleware(300), categoryController.getCategories);
+router.get('/categories/all', protect, adminOnly, categoryController.getAllCategories);
+router.post('/categories', protect, adminOnly, marketMediaUpload.single('image'), categoryController.createCategory);
+router.put('/categories/:id', protect, adminOnly, marketMediaUpload.single('image'), categoryController.updateCategory);
+router.delete('/categories/:id', protect, adminOnly, categoryController.deleteCategory);
 
 // Wholesalers
 router.get('/wholesalers', cacheMiddleware(300), wholesalerController.getWholesalers);
