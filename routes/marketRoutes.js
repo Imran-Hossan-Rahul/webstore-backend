@@ -3,12 +3,20 @@ import * as wholesalerController from '../controllers/marketWholesalerController
 import * as productController from '../controllers/marketProductController.js';
 import * as orderController from '../controllers/marketOrderController.js';
 import * as procurementController from '../controllers/marketProcurementController.js';
+import * as bannerController from '../controllers/marketBannerController.js';
 
 import { protect, adminOnly, optionalProtect } from '../middlewares/authMiddleware.js';
 import { cacheMiddleware } from '../utils/cache.js';
 import marketMediaUpload from '../config/marketMulter.js';
 
 const router = express.Router();
+
+// Banners
+router.get('/banners', cacheMiddleware(300), bannerController.getBanners);
+router.get('/banners/all', protect, adminOnly, bannerController.getAllBanners);
+router.post('/banners', protect, adminOnly, marketMediaUpload.single('image'), bannerController.createBanner);
+router.put('/banners/:id', protect, adminOnly, marketMediaUpload.single('image'), bannerController.updateBanner);
+router.delete('/banners/:id', protect, adminOnly, bannerController.deleteBanner);
 
 // Wholesalers
 router.get('/wholesalers', cacheMiddleware(300), wholesalerController.getWholesalers);
