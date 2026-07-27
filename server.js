@@ -344,6 +344,12 @@ const csrfProtection = (req, res, next) => {
   }
   // 3. Attach to request for controllers
   req.csrfToken = csrfToken;
+
+  // 4. Expose token in header so frontend can read it even if cookies are blocked cross-origin
+  res.setHeader("X-CSRF-Token", csrfToken);
+  const exposed = res.getHeader("Access-Control-Expose-Headers") || "";
+  res.setHeader("Access-Control-Expose-Headers", exposed ? exposed + ", X-CSRF-Token" : "X-CSRF-Token");
+
   next();
 };
 
