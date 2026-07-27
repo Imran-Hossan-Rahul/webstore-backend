@@ -6,13 +6,21 @@ import path from 'path';
 // @access  Public
 export const getCategories = async (req, res) => {
   try {
-    const categories = await MarketCategory.find({ isSubcategory: false, isActive: true }).lean();
-    const subcategories = await MarketCategory.find({ isSubcategory: true, isActive: true }).lean();
+    const allCategories = await MarketCategory.find({ isActive: true }).lean();
+    
+    const categoryMap = {};
+    allCategories.forEach(cat => {
+      cat.subcategories = [];
+      categoryMap[cat._id] = cat;
+    });
 
-    // Map subcategories to their parents
-    const categoryTree = categories.map(cat => {
-      cat.subcategories = subcategories.filter(sub => String(sub.parentCategory) === String(cat._id));
-      return cat;
+    const categoryTree = [];
+    allCategories.forEach(cat => {
+      if (cat.parentCategory && categoryMap[cat.parentCategory]) {
+        categoryMap[cat.parentCategory].subcategories.push(cat);
+      } else {
+        categoryTree.push(cat);
+      }
     });
 
     res.json({ success: true, data: categoryTree });
