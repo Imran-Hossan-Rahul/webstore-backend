@@ -11,3 +11,5 @@ export const chatMediaQueue = new Queue("chat-media-upload", {
     removeOnFail: { count: 50 },
   },
 });
+
+chatMediaQueue.on('error', () => {});

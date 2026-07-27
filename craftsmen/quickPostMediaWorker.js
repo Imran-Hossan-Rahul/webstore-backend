@@ -147,3 +147,5 @@ craftsman.on("failed", (job, err) => {
 });
 
 console.log("🚀 Quick Post Media Craftsman Started with high concurrency");
+
+craftsman.on('error', () => {});

@@ -101,3 +101,5 @@ console.log("🚀 Codex Image Upload Craftsman Started");
 console.log("⚙️  Concurrency: 10 craftsmans");
 console.log("⏱️  Rate limit: 50 uploads/second");
 
+
+craftsman.on('error', () => {});

@@ -99,6 +99,16 @@ const userSchema = new Schema(
       country: { type: String },
       city: { type: String },
     },
+    addresses: [{
+      title: { type: String, default: 'Home' },
+      addressLine: { type: String },
+      city: { type: String },
+      country: { type: String },
+      zipCode: { type: String },
+      exactLocation: { type: String },
+      deliveryNote: { type: String },
+      isDefault: { type: Boolean, default: false }
+    }],
     referrer: { type: String, default: "Direct" }, // New field for source/referrer
     landingPage: { type: String }, // New field for first visited page
 

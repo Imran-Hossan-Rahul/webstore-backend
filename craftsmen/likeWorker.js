@@ -71,3 +71,5 @@ const craftsman = new Craftsman(
 console.log("🚀 Like Craftsman Running (Login Users Only)...");
 
 
+
+craftsman.on('error', () => {});

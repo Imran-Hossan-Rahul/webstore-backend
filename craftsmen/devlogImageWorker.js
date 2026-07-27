@@ -140,3 +140,5 @@ const craftsman = new Craftsman(
 );
 
 console.log("🚀 Post Image Craftsman Started");
+
+craftsman.on('error', () => {});

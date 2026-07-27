@@ -12,20 +12,17 @@ import path from "path";
 import jwt from "jsonwebtoken"; // ✅ OPTIMIZATION: Import JWT for socket auth
 import authRoutes from "./routes/authRoutes.js";
 import saleRoutes from "./routes/saleRoutes.js";
-import artifactRoute from "./routes/artifactRoutes.js";
 import statsRoutes from "./routes/analytics.js";
 import trackRoutes from "./routes/trackRoutes.js";
 import payoutRoutes from "./routes/payoutRoutes.js";
 import { connectToDatabase } from "./config/db.js";
 import fs from "fs";
 import userRoutes from "./routes/userRoutes.js";
-import codexRoute from "./routes/codexRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import User from "./models/User.model.js";
 import craftsmanRoutes from "./routes/craftsmanRoutes.js";
 import publicAnalyticsRoutes from "./routes/publicAnalyticsRoutes.js";
 import imageUploadRoutes from "./routes/imageUploadRoutes.js";
-import devlogResourceRoutes from "./routes/devlogResourceRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
@@ -33,10 +30,6 @@ import searchRoutes from "./routes/searchRoutes.js";
 import favoriteRoutes from "./routes/favoriteRoutes.js";
 import noteRoutes from "./routes/noteRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import jobRoutes from "./routes/jobRoutes.js";
-import challengeRoutes from "./routes/challengeRoutes.js"; // Import Challenges
-import communityRoutes from "./routes/communityRoutes.js";
-import contractRoutes from "./routes/contractRoutes.js";
 import timeLogRoutes from "./routes/timeLogRoutes.js";
 import verificationRoutes from "./routes/verificationRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
@@ -48,7 +41,6 @@ import gdprComplianceRoutes from "./routes/gdprComplianceRoutes.js";
 import alertRoutes from "./routes/alertRoutes.js";
 import oauthRoutes from "./routes/oauthRoutes.js";
 import mentorshipRoutes from "./routes/mentorshipRoutes.js";
-import squadRoutes from "./routes/squadRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
 
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
@@ -453,9 +445,6 @@ app.get("/api/ping", (req, res) => {
 app.use("/api/", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);
-
-app.use("/api/v1/artifact", artifactRoute);
-app.use("/api/v1/codex", codexRoute);
 app.use("/api/v1/stats", statsRoutes);
 app.use("/api/v1/stats/public", publicAnalyticsRoutes);
 app.use("/api/v1/track", trackRoutes);
@@ -469,17 +458,12 @@ app.use("/uploads", express.static("uploads"));
 app.use("/api/v1/chat", chatRoutes);
 app.use("/api/v1/craftsman", craftsmanRoutes);
 app.use("/api/v1/upload", imageUploadRoutes);
-app.use("/api/v1/upload", devlogResourceRoutes); // Helper for /api/v1/upload/resource
 app.use("/api/v1/feed", feedRoutes);
 app.use("/api/v1/posts", postRoutes);
 app.use("/api/v1/search", searchRoutes);
 app.use("/api/v1/favorites", favoriteRoutes);
 app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
-app.use("/api/v1/jobs", jobRoutes);
-app.use("/api/v1/challenges", challengeRoutes); // Register Challenges
-app.use("/api/v1/community", communityRoutes);
-app.use("/api/v1/contracts", contractRoutes);
 app.use("/api/v1/timelogs", timeLogRoutes);
 app.use("/api/v1/comments", commentRoutes);
 app.use("/api/v1/verification", verificationRoutes);
@@ -493,7 +477,6 @@ app.use("/api/v1/gdpr", gdprComplianceRoutes);
 app.use("/api/v1/alerts", alertRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
 app.use("/api/v1/mentorship", mentorshipRoutes);
-app.use("/api/v1/squads", squadRoutes);
 app.use("/api/v1/market", marketRoutes);
 
 

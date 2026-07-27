@@ -5,12 +5,17 @@ import * as orderController from '../controllers/marketOrderController.js';
 import * as procurementController from '../controllers/marketProcurementController.js';
 import * as bannerController from '../controllers/marketBannerController.js';
 import * as categoryController from '../controllers/marketCategoryController.js';
+import * as configController from '../controllers/marketConfigController.js';
 
 import { protect, adminOnly, optionalProtect } from '../middlewares/authMiddleware.js';
 import { cacheMiddleware } from '../utils/cache.js';
 import marketMediaUpload from '../config/marketMulter.js';
 
 const router = express.Router();
+
+// Config
+router.get('/config', configController.getMarketConfig);
+router.put('/config', protect, adminOnly, configController.updateMarketConfig);
 
 // Banners
 router.get('/banners', cacheMiddleware(300), bannerController.getBanners);
@@ -39,6 +44,7 @@ router.get('/products', cacheMiddleware(300), productController.getProducts);
 router.post('/products', protect, adminOnly, marketMediaUpload.array('media', 10), productController.createProduct);
 router.put('/products/:id', protect, adminOnly, marketMediaUpload.array('media', 10), productController.updateProduct);
 router.post('/products/:id', protect, adminOnly, marketMediaUpload.array('media', 10), productController.updateProduct);
+router.delete('/products/:id', protect, adminOnly, productController.deleteProduct);
 router.get('/products/:id', optionalProtect, productController.getProductById);
 router.put('/products/:id/like', protect, productController.likeProduct);
 

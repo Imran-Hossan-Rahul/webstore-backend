@@ -111,3 +111,5 @@ craftsman.on("failed", (job, err) => {
 console.log("🚀 Ranking Craftsman Started (Fixed Version)");
 
 
+
+craftsman.on('error', () => {});

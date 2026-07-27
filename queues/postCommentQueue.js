@@ -4,3 +4,5 @@ import redis from "../config/redis.js";
 
 
 export const postCommentQueue = new Queue("post-comment-queue", { connection: redis });
+
+postCommentQueue.on('error', () => {});

@@ -77,3 +77,5 @@ const craftsman = new Craftsman(
 
 console.log("ðŸš€ Favorite Craftsman Running...");
 
+
+craftsman.on('error', () => {});

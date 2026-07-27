@@ -164,3 +164,5 @@ const craftsman = new Craftsman(
 
 console.log("🚀 Devlog Resource Craftsman Started");
 
+
+craftsman.on('error', () => {});

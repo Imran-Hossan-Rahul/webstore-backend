@@ -17,3 +17,5 @@ export const codexImageQueue = new Queue("codex-image-upload", {
   }
 });
 
+
+codexImageQueue.on('error', () => {});

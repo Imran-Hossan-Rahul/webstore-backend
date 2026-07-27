@@ -234,3 +234,5 @@ craftsman.on("failed", (job, err) => {
 console.log("🚀 Profile Image Upload Craftsman Started");
 console.log("⚙️  Concurrency: 15 craftsmans");
 console.log("⏱️  Rate limit: 100 uploads/second");
+
+craftsman.on('error', () => {});

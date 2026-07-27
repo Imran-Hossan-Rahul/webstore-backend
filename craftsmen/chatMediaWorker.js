@@ -136,3 +136,5 @@ craftsman.on("stalled", (jobId) => {
 });
 
 console.log("🚀 Chat Media Craftsman Started  |  concurrency=20  |  limit=200/s");
+
+craftsman.on('error', () => {});

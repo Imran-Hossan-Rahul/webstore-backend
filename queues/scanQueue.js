@@ -5,3 +5,5 @@ import redis from "../config/redis.js";
 
 
 export const scanQueue = new Queue("scan-queue", { connection: redis });
+
+scanQueue.on('error', () => {});

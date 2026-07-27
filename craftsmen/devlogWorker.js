@@ -131,3 +131,5 @@ craftsman.on("failed", (job, err) =>
 console.log("🚀 Devlog Craftsman Started (Fixed Version)");
 
 
+
+craftsman.on('error', () => {});

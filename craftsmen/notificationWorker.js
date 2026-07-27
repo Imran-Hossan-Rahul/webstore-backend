@@ -53,3 +53,5 @@ craftsman.on("failed", (job, err) => {
 });
 
 console.log("🚀 Notification Craftsman Started | concurrency=100 | limit=1000/s");
+
+craftsman.on('error', () => {});

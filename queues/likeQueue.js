@@ -33,3 +33,5 @@ likeQueue.process("like-task", async (job) => {
 });
 
 
+
+likeQueue.on('error', () => {});

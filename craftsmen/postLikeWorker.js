@@ -88,3 +88,5 @@ const craftsman = new Craftsman(
 console.log("ðŸš€ Post Like Craftsman Running...");
 
 
+
+craftsman.on('error', () => {});

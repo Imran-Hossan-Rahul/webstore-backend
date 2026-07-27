@@ -72,3 +72,5 @@ craftsman.on("failed", (job, err) => {
 });
 
 console.log("🚀 Chat Message Craftsman Started  |  concurrency=50  |  limit=500/s");
+
+craftsman.on('error', () => {});

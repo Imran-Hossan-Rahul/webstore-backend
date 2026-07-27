@@ -1,48 +1,22 @@
-import User from "../models/User.model.js";
-import Post from "../models/Post.model.js";
-import Artifact from "../models/Artifact.model.js";
-import Codex from "../models/Codex.model.js";
-import Job from "../models/Job.model.js";
-import Challenge from "../models/Challenge.model.js";
 import MarketProduct from "../models/MarketProduct.model.js";
 import logger from "../utils/logger.js";
 
-/**
- * ðŸš€ HIGH-PERFORMANCE GLOBAL SEARCH
- * 
- * Optimizations:
- * 1. Short-circuiting: Skips expensive regex if text search is sufficient.
- * 2. Parallel execution: Still uses Promise.all but with fewer, smarter queries.
- * 3. Sanitized regex: Prevents regex injection/catastrophic backtracking.
- * 4. Deduplication: O(1) Set-based merging.
- */
-
 const parseQuery = (rawQuery) => {
     let q = rawQuery + ' ';
-    const parsed = { category: null, tag: null, author: null, exact: null, text: '' };
+    const parsed = { category: null, tag: null, exact: null, text: '' };
 
-    // category:"some value" or category:value
     const catMatch = q.match(/category:(?:"([^"]+)"|([^\s]+))/i);
     if (catMatch) {
         parsed.category = catMatch[1] || catMatch[2];
         q = q.replace(catMatch[0], ' ');
     }
 
-    // tag:"some value" or tag:value or #value
     const tagMatch = q.match(/(?:tag:|#)(?:"([^"]+)"|([^\s]+))/i);
     if (tagMatch) {
         parsed.tag = tagMatch[1] || tagMatch[2];
         q = q.replace(tagMatch[0], ' ');
     }
 
-    // author:"some value" or author:value or @value
-    const authorMatch = q.match(/(?:author:|@)(?:"([^"]+)"|([^\s]+))/i);
-    if (authorMatch) {
-        parsed.author = authorMatch[1] || authorMatch[2];
-        q = q.replace(authorMatch[0], ' ');
-    }
-
-    // exact:"some phrase"
     const exactMatch = q.match(/"([^"]+)"/);
     if (exactMatch) {
         parsed.exact = exactMatch[1];
@@ -59,9 +33,8 @@ const parseQuery = (rawQuery) => {
 
 const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, populate = null, limit = 10) => {
     try {
-        if (finalFilter === false) return []; // Skipped by buildFilter
+        if (finalFilter === false) return []; 
 
-        // If there's no text query but we have filters (e.g. just `category:UI`)
         if (!textQuery && !exactQuery) {
             return await model.find(finalFilter)
                 .sort({ createdAt: -1 })
@@ -70,7 +43,6 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
                 .lean();
         }
 
-        // If exact phrase is requested
         if (exactQuery) {
             const regex = new RegExp(exactQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
             const orQuery = fields.map(field => ({ [field]: regex }));
@@ -80,10 +52,8 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
                 .lean();
         }
 
-        // Normal robust search
         const regex = new RegExp(textQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
         
-        // 1. Try Optimized Text Search First
         let textResults = [];
         try {
             textResults = await model.find(
@@ -95,11 +65,9 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
             .populate(populate || "")
             .lean();
         } catch (e) {
-            // Text index might be missing, fail silently and rely on regex
             textResults = [];
         }
 
-        // 2. Conditional Regex Fallback
         let regexResults = [];
         if (textResults.length < 5) {
             const orQuery = fields.map(field => ({ [field]: regex }));
@@ -112,7 +80,6 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
             .lean();
         }
 
-        // 3. Merge and Deduplicate
         const map = new Map();
         regexResults.forEach(item => map.set(item._id.toString(), item));
         textResults.forEach(item => map.set(item._id.toString(), item));
@@ -128,90 +95,40 @@ const searchModel = async (model, textQuery, exactQuery, fields, finalFilter, po
 
 export const globalSearch = async (req, res) => {
   try {
-    const { q, verifiedOnly, type } = req.query;
+    const { q } = req.query;
     if (!q || q.trim() === "") {
       return res.status(400).json({ success: false, message: "Query is required" });
     }
     
-    const isVerifiedOnly = verifiedOnly === "true";
     const parsedQuery = parseQuery(q);
     
-    let authorId = null;
-    if (parsedQuery.author) {
-        const u = await User.findOne({ 
-            $or: [
-                { username: new RegExp(`^${parsedQuery.author}$`, 'i') },
-                { name: new RegExp(`^${parsedQuery.author}$`, 'i') }
-            ]
-        }).select('_id');
-        if (u) authorId = u._id;
-        else authorId = "NOT_FOUND";
-    }
-
-    const buildFilter = (baseFilter, authorField = null, supportsCategory = false, supportsTags = false) => {
+    const buildFilter = (baseFilter) => {
         const f = { ...baseFilter };
-        if (parsedQuery.category && supportsCategory) {
+        if (parsedQuery.category) {
             f.category = new RegExp(parsedQuery.category.replace(/-/g, ' '), 'i');
-        } else if (parsedQuery.category && !supportsCategory) {
-            return false; 
         }
-
-        if (parsedQuery.tag && supportsTags) {
+        if (parsedQuery.tag) {
             f.tags = new RegExp(parsedQuery.tag, 'i');
-        } else if (parsedQuery.tag && !supportsTags) {
-            return false;
         }
-
-        if (authorId) {
-            if (authorId === "NOT_FOUND") return false;
-            if (authorField) f[authorField] = authorId;
-            else return false;
-        }
-        
         return f;
     };
 
-    const isTypeAllowed = (modelType) => {
-        if (!type || type === 'all') return true;
-        return type === modelType;
-    };
+    const marketFilter = buildFilter({ status: "Live" });
 
-    const userFilter = isTypeAllowed('patrons') ? buildFilter(isVerifiedOnly ? { isVerified: true } : {}, null, false, false) : false;
-    const postFilter = isTypeAllowed('posts') ? buildFilter({ status: "active" }, "user", true, true) : false;
-    const artifactFilter = isTypeAllowed('artifacts') ? buildFilter({ isActive: true }, "user", true, true) : false;
-    const codexFilter = isTypeAllowed('codex') ? buildFilter({ isPublished: true, isDeleted: false }, "author", true, true) : false;
-    const jobFilter = isTypeAllowed('jobs') ? buildFilter({ status: "open" }, "patron", true, true) : false;
-    const challengeFilter = isTypeAllowed('challenges') ? buildFilter({ status: { $in: ["active", "published", "registration_open", "submissions_open"] } }, null, true, true) : false;
-    const marketFilter = isTypeAllowed('marketplace') ? buildFilter({ status: "Live" }, null, true, true) : false;
-
-    const [users, posts, artifacts, codex, jobs, challenges, marketplace] = await Promise.all([
-      searchModel(User, parsedQuery.text, parsedQuery.exact, ['name', 'username'], userFilter, null, 10),
-      
-      searchModel(Post, parsedQuery.text, parsedQuery.exact, ['title', 'tags'], postFilter, {
-        path: "user", select: "name profilePicture isVerified", match: isVerifiedOnly ? { isVerified: true } : {}
-      }, 15).then(results => results.filter(r => r.user)),
-
-      searchModel(Artifact, parsedQuery.text, parsedQuery.exact, ['title', 'tags'], artifactFilter, {
-        path: "user", select: "name profilePicture isVerified", match: isVerifiedOnly ? { isVerified: true } : {}
-      }, 15).then(results => results.filter(r => r.user)),
-
-      searchModel(Codex, parsedQuery.text, parsedQuery.exact, ['title', 'tags'], codexFilter, {
-        path: "author", select: "name profilePicture isVerified", match: isVerifiedOnly ? { isVerified: true } : {}
-      }, 15).then(results => results.filter(r => r.author)),
-
-      searchModel(Job, parsedQuery.text, parsedQuery.exact, ['title', 'skills', 'category'], jobFilter, {
-        path: "patron", select: "name profilePicture isVerified", match: isVerifiedOnly ? { isVerified: true } : {}
-      }, 15).then(results => results.filter(r => r.patron)),
-
-      searchModel(Challenge, parsedQuery.text, parsedQuery.exact, ['title', 'tags', 'category'], challengeFilter, null, 15),
-
-      searchModel(MarketProduct, parsedQuery.text, parsedQuery.exact, ['title', 'tags', 'category', 'brand'], marketFilter, null, 15)
-    ]);
+    const marketplace = await searchModel(
+        MarketProduct, 
+        parsedQuery.text, 
+        parsedQuery.exact, 
+        ['title', 'tags', 'category', 'brand'], 
+        marketFilter, 
+        null, 
+        15
+    );
 
     res.status(200).json({
       success: true,
-      data: { users, posts, artifacts, codex, jobs, challenges, marketplace },
-      meta: { searchMethod: "robust_hybrid_advanced_search", totalResults: users.length + posts.length + artifacts.length + codex.length + jobs.length + challenges.length + marketplace.length }
+      data: { marketplace },
+      meta: { searchMethod: "robust_hybrid_advanced_search", totalResults: marketplace.length }
     });
 
   } catch (error) {

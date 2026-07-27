@@ -66,3 +66,5 @@ const craftsman = new Craftsman(
 console.log("ðŸš€ Share Craftsman Running...");
 
 
+
+craftsman.on('error', () => {});

@@ -5,17 +5,8 @@ import redis from "../config/redis.js";
  * Notification Queue
  * Handles high-volume notification delivery (DB writes + Socket emits)
  */
-const notificationQueue = new Queue("notification-queue", {
-  connection: redis,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 1000,
-    },
-    removeOnComplete: true,
-  },
-});
+export const notificationQueue = new Queue("NotificationQueue", { connection: redis });
+notificationQueue.on('error', (err) => console.error("NotificationQueue Error:", err));
 
 export const addNotificationJob = async (recipientId, data) => {
   await notificationQueue.add("process-notification", { recipientId, data });

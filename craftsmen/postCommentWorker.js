@@ -87,3 +87,5 @@ const craftsman = new Craftsman(
 console.log("ðŸš€ Post Comment Craftsman Running...");
 
 
+
+craftsman.on('error', () => {});

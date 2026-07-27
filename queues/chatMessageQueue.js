@@ -16,3 +16,5 @@ export const chatMessageQueue = new Queue("chat-message", {
     removeOnFail: { count: 100 },
   },
 });
+
+chatMessageQueue.on('error', () => {});

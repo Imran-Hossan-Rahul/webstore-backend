@@ -53,6 +53,7 @@ export const getUserProfile = async (req, res) => {
               payoutMethod: user.payoutMethod,
               bankDetails: user.bankDetails,
               location: user.location,
+              addresses: user.addresses || [],
               professionalLinks: user.professionalLinks,
               companyDetails: user.companyDetails,
               pronouns: user.pronouns,
@@ -208,6 +209,7 @@ export const updateUserProfile = async (req, res) => {
     user.workType = req.body.workType || user.workType;
     if (req.body.gender !== undefined) user.gender = req.body.gender;
     user.location = req.body.location || user.location;
+    user.addresses = req.body.addresses || user.addresses;
     user.professionalLinks = req.body.professionalLinks || user.professionalLinks;
     user.companyDetails = req.body.companyDetails || user.companyDetails;
     user.payoutMethod = req.body.payoutMethod || user.payoutMethod;
