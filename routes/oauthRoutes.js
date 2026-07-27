@@ -1,23 +1,19 @@
 import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
 import {
-  githubConnectRedirect,
-  githubConnectCallback,
-  githubLoginRedirect,
+  // Github routes removed
+
   googleConnectRedirect,
   googleConnectCallback,
   googleLoginRedirect,
   disconnectAccount,
   getConnectedAccounts,
-  getGithubRepos,
+  // getGithubRepos removed
 } from "../controllers/oauthController.js";
 
 const router = express.Router();
 
-// GitHub OAuth
-router.get("/github/connect",  protect, githubConnectRedirect);
-router.get("/github/login",             githubLoginRedirect);
-router.get("/github/callback",          githubConnectCallback); // generic callback
+// GitHub OAuth Removed
 
 // Google OAuth
 router.get("/google/connect",  protect, googleConnectRedirect);
@@ -29,6 +25,6 @@ router.get("/connected",        protect, getConnectedAccounts);
 router.delete("/disconnect/:provider", protect, disconnectAccount);
 
 // Public Resource Fetching
-router.get("/github/repos/:username", getGithubRepos);
+// GitHub repos endpoint removed
 
 export default router;
