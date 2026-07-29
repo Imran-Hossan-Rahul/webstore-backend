@@ -30,7 +30,7 @@ import logger from './logger.js';
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_FLUSH_INTERVAL_MS = 3000; // 3 seconds between flush cycles
 const DEFAULT_MAX_BUFFER_SIZE   = 200;  // flush immediately if a session buffer hits this
-const ARRAY_SLICE_CAP           = 500;  // max array elements per field in a single document
+const ARRAY_SLICE_CAP           = 100;  // max array elements per field (lowered to 100 to prevent 16MB MongoDB limit)
 
 // ── Singleton registry ────────────────────────────────────────────────────────
 // One TelemetryBuffer instance per (Model, flushKey) combination, stored here.
