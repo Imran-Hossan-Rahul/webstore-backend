@@ -66,10 +66,8 @@ const io = new Server(server, {
       }
       
       // 🔒 SECURITY FIX: Block no-origin in production (same policy as HTTP CORS)
+      // Allow no-origin so Next.js SSR / Server Components can fetch data
       if (!origin) {
-        if (process.env.NODE_ENV === "production") {
-          return callback(new Error("Not allowed by CORS"));
-        }
         return callback(null, true);
       }
 
@@ -364,12 +362,8 @@ const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN; // e.g., "your-app.verc
 
 const strictCors = cors({
     origin: function (origin, callback) {
-      // 🔒 SECURITY FIX: In production, block requests with no origin (direct Postman/curl access)
-      // In development, allow no-origin for local testing convenience
+      // Allow no-origin so Next.js SSR / Server Components can fetch data
       if (!origin) {
-        if (process.env.NODE_ENV === "production") {
-          return callback(new Error("Direct API access not allowed in production"));
-        }
         return callback(null, true);
       }
       
@@ -378,13 +372,20 @@ const strictCors = cors({
         return callback(null, true);
       }
 
-      // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
+      // Check if origin is in allowed list (ignoring trailing slashes)
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      const normalizedAllowed = allowedOrigins.map(url => url.replace(/\/$/, ""));
+      if (normalizedAllowed.includes(normalizedOrigin)) {
         return callback(null, true);
       }
       
       // Check if it's your specific production Vercel domain (exact match, not wildcard)
       if (PRODUCTION_DOMAIN && origin === `https://${PRODUCTION_DOMAIN}`) {
+        return callback(null, true);
+      }
+      
+      // Check if it's a vercel preview domain
+      if (origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
       
