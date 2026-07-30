@@ -2,7 +2,7 @@ import VerificationRequest from "../models/VerificationRequest.model.js";
 import User from "../models/User.model.js";
 import TokenTransaction from "../models/TokenTransaction.model.js";
 import logger from "../utils/logger.js";
-import GamificationService from "../services/GamificationService.js";
+
 
 /**
  * Submit a verification request with strict requirements
@@ -203,9 +203,7 @@ export const reviewRequest = async (req, res) => {
         verificationStatus: "approved"
       });
       // Award XP and Tokens for Identity Verification
-      await GamificationService.awardRewards(request.user, 'VERIFY_IDENTITY').catch(err => 
-        logger.error("Failed to award VERIFY_IDENTITY rewards:", err)
-      );
+
     } else if (status === "rejected") {
       await User.findByIdAndUpdate(request.user, {
         isVerified: false,

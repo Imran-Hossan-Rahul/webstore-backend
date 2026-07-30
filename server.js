@@ -11,40 +11,21 @@ import { Server } from "socket.io";
 import path from "path";
 import jwt from "jsonwebtoken"; // ✅ OPTIMIZATION: Import JWT for socket auth
 import authRoutes from "./routes/authRoutes.js";
-import saleRoutes from "./routes/saleRoutes.js";
-import statsRoutes from "./routes/analytics.js";
-import trackRoutes from "./routes/trackRoutes.js";
-import payoutRoutes from "./routes/payoutRoutes.js";
 import { connectToDatabase } from "./config/db.js";
 import fs from "fs";
 import userRoutes from "./routes/userRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import User from "./models/User.model.js";
-import craftsmanRoutes from "./routes/craftsmanRoutes.js";
-import publicAnalyticsRoutes from "./routes/publicAnalyticsRoutes.js";
 import imageUploadRoutes from "./routes/imageUploadRoutes.js";
-import feedRoutes from "./routes/feedRoutes.js";
-import postRoutes from "./routes/postRoutes.js";
-import commentRoutes from "./routes/commentRoutes.js";
-import searchRoutes from "./routes/searchRoutes.js";
-import favoriteRoutes from "./routes/favoriteRoutes.js";
-import noteRoutes from "./routes/noteRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import timeLogRoutes from "./routes/timeLogRoutes.js";
 import verificationRoutes from "./routes/verificationRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
 import tokenRoutes from "./routes/tokenRoutes.js";
-import reviewRoutes from "./routes/reviewRoutes.js";
-import advancedTrackingRoutes from "./routes/advancedTrackingRoutes.js";
-import analyticsAdvancedRoutes from "./routes/analyticsAdvancedRoutes.js";
-import gdprComplianceRoutes from "./routes/gdprComplianceRoutes.js";
-import alertRoutes from "./routes/alertRoutes.js";
 import oauthRoutes from "./routes/oauthRoutes.js";
-import mentorshipRoutes from "./routes/mentorshipRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
 
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
-import { startChallengePhaseScheduler } from "./services/challengePhaseScheduler.js";
+
 import { apiLimiter } from "./middlewares/rateLimiter.js"; // ✅ FIX: Global rate limiter import
 
 const app = express();
@@ -114,7 +95,7 @@ io.use((socket, next) => {
     return next();
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_ACCESS_TOKEN);
     socket.user = decoded; // Attach user to socket
     next();
   } catch (err) {
@@ -130,7 +111,7 @@ io.on("connection", (socket) => {
   let authenticatedUserId = socket.user?.id; // Use ID from JWT 
 
   // User joins with their ID
-  socket.on("user:online", (userId) => {
+  socket.on("user:online", async (userId) => {
     if (!userId || typeof userId !== "string") return;
     authenticatedUserId = userId;
     
@@ -139,6 +120,17 @@ io.on("connection", (socket) => {
     }
     onlineUsers.get(userId).add(socket.id);
     
+    // Support Chat: add admin sockets to a dedicated room
+    try {
+      const userObj = await User.findById(userId).select("role");
+      if (userObj && userObj.role === 'admin') {
+        socket.join("admins_room");
+        console.log(`User ${userId} joined admins_room`);
+      }
+    } catch(err) {
+      console.error("Error joining admins_room:", err);
+    }
+
     io.emit("user:status", { userId, status: "online" });
     console.log(`User ${userId} is online. Active sockets: ${onlineUsers.get(userId).size}`);
 
@@ -167,16 +159,6 @@ io.on("connection", (socket) => {
     socket.leave(chatId);
   });
 
-  // Join discussion room
-  socket.on("discussion:join", (discussionId) => {
-    socket.join(`discussion_${discussionId}`);
-    console.log(`Socket ${socket.id} joined discussion ${discussionId}`);
-  });
-
-  // Leave discussion room
-  socket.on("discussion:leave", (discussionId) => {
-    socket.leave(`discussion_${discussionId}`);
-  });
 
   // --- WebRTC Call Signaling ---
   socket.on("call:initiate", ({ targetUserId, callerId, callType, chatId }) => {
@@ -452,38 +434,17 @@ app.get("/api/ping", (req, res) => {
 app.use("/api/", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/stats", statsRoutes);
-app.use("/api/v1/stats/public", publicAnalyticsRoutes);
-app.use("/api/v1/track", trackRoutes);
 app.use("/api/v1/user", userRoutes);
-// app.use("/api/v1/payment", paymentRoutes); // Real-money payments disabled
 app.use("/api/v1/tokens", tokenRoutes);
-app.use("/api/v1/payout", payoutRoutes);
 // Serve uploaded chat files as static assets
 app.use("/uploads", express.static("uploads"));
 
 app.use("/api/v1/chat", chatRoutes);
-app.use("/api/v1/craftsman", craftsmanRoutes);
 app.use("/api/v1/upload", imageUploadRoutes);
-app.use("/api/v1/feed", feedRoutes);
-app.use("/api/v1/posts", postRoutes);
-app.use("/api/v1/search", searchRoutes);
-app.use("/api/v1/favorites", favoriteRoutes);
-app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
-app.use("/api/v1/timelogs", timeLogRoutes);
-app.use("/api/v1/comments", commentRoutes);
 app.use("/api/v1/verification", verificationRoutes);
 app.use("/api/v1/wallet", walletRoutes);
-app.use("/api/v1/reviews", reviewRoutes);
-
-// Advanced Tracking & Analytics Routes
-app.use("/api/v1/track/advanced", advancedTrackingRoutes);
-app.use("/api/v1/analytics/advanced", analyticsAdvancedRoutes);
-app.use("/api/v1/gdpr", gdprComplianceRoutes);
-app.use("/api/v1/alerts", alertRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
-app.use("/api/v1/mentorship", mentorshipRoutes);
 app.use("/api/v1/market", marketRoutes);
 
 
@@ -528,8 +489,7 @@ const startServer = async () => {
     await connectToDatabase();
     logger.info("✅ MongoDB connection established");
     
-    // Start challenge phase auto-transition scheduler (runs every 5 min)
-    startChallengePhaseScheduler();
+
 
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${PORT}`);

@@ -23,9 +23,6 @@ export const generateAccessToken = (user) => {
   const payload = {
     id: user._id.toString(),
     role: user.role,
-    isSuperAdmin: user.isSuperAdmin || false, // ✅ FIX: was missing — superadmin couldn't access /admin
-    hasCraftsmanAccount: user.hasCraftsmanAccount || false,
-    isHost: user.isHost || false,
   };
   return jwt.sign(payload, JWT_ACCESS_SECRET, {
     expiresIn: JWT_ACCESS_EXPIRY,

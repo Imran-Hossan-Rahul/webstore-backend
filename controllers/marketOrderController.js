@@ -4,7 +4,11 @@ import MarketOrderItem from '../models/MarketOrderItem.model.js';
 // Admin: get ALL orders across all users
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await MarketOrder.find().sort({ createdAt: -1 }).lean();
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * limit;
+
+    const orders = await MarketOrder.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
     const allOrderIds = orders.map(o => o._id);
     const allItems = await MarketOrderItem.find({ order_id: { $in: allOrderIds } }).populate('product_id').lean();
 
@@ -13,11 +17,13 @@ export const getAllOrders = async (req, res) => {
       return {
         ...order,
         id: order._id,
-        items: orderItems.map(item => ({
-          ...item,
-          id: item._id,
-          product: item.product_id ? { ...item.product_id, id: item.product_id._id } : null
-        }))
+        items: orderItems.map(item => {
+          const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
+          if (product && Array.isArray(product.photos)) {
+            product.photos = JSON.stringify(product.photos);
+          }
+          return { ...item, id: item._id, product };
+        })
       };
     });
 
@@ -30,7 +36,11 @@ export const getAllOrders = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const userId = req.user._id.toString();
-    const orders = await MarketOrder.find({ user_id: userId }).lean();
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * limit;
+
+    const orders = await MarketOrder.find({ user_id: userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
     
     // We need to fetch items manually since we are using .lean() without complex aggregation
     const allOrderIds = orders.map(o => o._id);
@@ -41,11 +51,13 @@ export const getOrders = async (req, res) => {
       return {
         ...order,
         id: order._id,
-        items: orderItems.map(item => ({
-          ...item,
-          id: item._id,
-          product: item.product_id ? { ...item.product_id, id: item.product_id._id } : null
-        }))
+        items: orderItems.map(item => {
+          const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
+          if (product && Array.isArray(product.photos)) {
+            product.photos = JSON.stringify(product.photos);
+          }
+          return { ...item, id: item._id, product };
+        })
       };
     });
     
@@ -64,7 +76,7 @@ export const createOrder = async (req, res) => {
     const order = await MarketOrder.create({
       user_id: userId,
       phone,
-      address: JSON.stringify(address),
+      address, // Save as object directly (requires model update to match)
       status: 'Order placed',
       source_channel
     });

@@ -82,14 +82,6 @@ export const registerUser = async (req, res) => {
       username,
       email, 
       password,
-      hasCraftsmanAccount: false,
-    });
-
-    // Auto-create PlatformProfile
-    const PlatformProfile = (await import("../models/PlatformProfile.model.js")).default;
-    await PlatformProfile.create({
-      userId: user._id,
-      isActive: true,
     });
 
     // Generate tokens
@@ -118,8 +110,6 @@ export const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        hasCraftsmanAccount: user.hasCraftsmanAccount,
-        isHost: user.isHost,
         accessToken,
         csrfToken: req.csrfToken,
       },
@@ -240,8 +230,6 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        hasCraftsmanAccount: user.hasCraftsmanAccount,
-        isHost: user.isHost,
         accessToken,
         csrfToken: req.csrfToken,
       },
@@ -341,8 +329,6 @@ export const verify2FALogin = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        hasCraftsmanAccount: user.hasCraftsmanAccount,
-        isHost: user.isHost,
         accessToken,
         csrfToken: req.csrfToken,
       },
@@ -426,15 +412,7 @@ export const logoutHandler = async (req, res) => {
 
 export const createAdminUserController = async (req, res) => {
   try {
-    const { name, email, password, role, isSuperAdmin } = req.body;
-
-    if (isSuperAdmin && !req.user.isSuperAdmin) {
-      return res.status(403).json({ success: false, message: "Only superadmin can create another superadmin" });
-    }
-
-    if (role === "admin" && !req.user.isSuperAdmin) {
-      return res.status(403).json({ success: false, message: "Only superadmin can assign admin role" });
-    }
+    const { name, email, password, role } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(409).json({ success: false, message: "User already exists" });
@@ -445,7 +423,6 @@ export const createAdminUserController = async (req, res) => {
       email, 
       password, 
       role, 
-      isSuperAdmin: !!isSuperAdmin,
       username
     });
 
@@ -457,7 +434,6 @@ export const createAdminUserController = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        isSuperAdmin: user.isSuperAdmin,
       },
     });
   } catch (err) {
@@ -470,10 +446,10 @@ export const deleteAdminController = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!req.user.isSuperAdmin) {
+    if (req.user.role !== "admin") {
       return res
         .status(403)
-        .json({ success: false, message: "Only superadmin can delete admins" });
+        .json({ success: false, message: "Only admins can delete admins" });
     }
 
     const user = await User.findById(id);
@@ -483,11 +459,7 @@ export const deleteAdminController = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    if (user.isSuperAdmin) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Cannot delete another superadmin" });
-    }
+
 
     user.isActive = false; 
     await user.save();
@@ -508,19 +480,15 @@ export const getUserCount = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const onlineUsers = await User.countDocuments({ status: "online" });
-    const craftsmen = await User.countDocuments({
-      hasCraftsmanAccount: true,
-    });
-    const platformUsers = await User.countDocuments({ 
-      hasCraftsmanAccount: false 
-    });
+    const admins = await User.countDocuments({ role: "admin" });
+    const regularUsers = await User.countDocuments({ role: "user" });
 
     return res.status(200).json({
       success: true,
       total: totalUsers,
       online: onlineUsers,
-      craftsmen,
-      platformUsers,
+      admins,
+      users: regularUsers,
     });
   } catch (error) {
     console.error(error);

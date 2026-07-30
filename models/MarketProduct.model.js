@@ -9,8 +9,8 @@ const marketProductSchema = new mongoose.Schema({
     type: String,
   },
   photos: {
-    type: String, // Storing as JSON stringified array of URLs for compatibility with previous schema
-    required: true,
+    type: [String],
+    default: []
   },
   category_id: {
     type: String,
@@ -47,12 +47,18 @@ const marketProductSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  specifications: {
-    type: String, // Storing as JSON stringified array of {key, value} objects
-  },
-  variantGroups: {
-    type: String, // JSON stringified array: [{ name: "Color", options: [{ label: "Lavender", priceDifference: 0, imageIndex: 0 }] }]
-  },
+  specifications: [{
+    key: String,
+    value: String
+  }],
+  variantGroups: [{
+    name: String,
+    options: [{
+      label: String,
+      priceDifference: Number,
+      imageIndex: Number
+    }]
+  }],
   warranty_info: {
     type: String,
   },

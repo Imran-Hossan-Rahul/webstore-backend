@@ -7,9 +7,9 @@ import { OTP } from "otplib";
 const authenticator = new OTP();
 import QRCode from "qrcode";
 import bcrypt from "bcryptjs";
-import Follow from "../models/Follow.model.js";
-import AuditLog from "../models/AuditLog.model.js";
-import GamificationService from "../services/GamificationService.js";
+
+
+
 import TokenTransaction from "../models/TokenTransaction.model.js";
 
 
@@ -25,12 +25,11 @@ export const getUserProfile = async (req, res) => {
         return res.json({ success: true, data: null });
       }
 
-      const user = await User.findById(req.user._id)
-          .populate("craftsmanProfileId", "profilePicture");
+      const user = await User.findById(req.user._id);
   
       if (user) {
         // Automatically check-in the user when they fetch their profile (triggers once a day)
-        await GamificationService.updateStreak(user._id).catch(err => logger.error("Daily check-in error:", err));
+
 
         res.json({
           success: true,
@@ -41,34 +40,21 @@ export const getUserProfile = async (req, res) => {
               email: user.email,
               role: user.role,
               bio: user.bio,
-              profilePicture: user.profilePicture || user.craftsmanProfileId?.profilePicture || "",
+              profilePicture: user.profilePicture || "",
               coverPicture: user.coverPicture,
               skills: user.skills,
               interests: user.interests,
               workType: user.workType,
               gender: user.gender,
-              hasCraftsmanAccount: user.hasCraftsmanAccount,
-              isHost: user.isHost,
               hasCompletedOnboarding: user.hasCompletedOnboarding,
-              payoutMethod: user.payoutMethod,
-              bankDetails: user.bankDetails,
               location: user.location,
               addresses: user.addresses || [],
               professionalLinks: user.professionalLinks,
-              companyDetails: user.companyDetails,
               pronouns: user.pronouns,
               availabilityStatus: user.availabilityStatus,
               hourlyRate: user.hourlyRate,
               openToWork: user.openToWork,
               dateOfBirth: user.dateOfBirth,
-              walletBalance: user.walletBalance || 0,
-              totalEarnings: user.totalEarnings || 0,
-              pendingPayout: user.pendingPayout || 0,
-              gamification: {
-                level: user.gamification?.level || 1,
-                xp: user.gamification?.xp || 0,
-                badges: user.gamification?.badges || [],
-              },
               twoFactorEnabled: user.twoFactorEnabled,
               emailVerified: user.emailVerified,
               lastActiveAt: user.lastActiveAt,
@@ -95,8 +81,7 @@ export const getPublicProfile = async (req, res) => {
     const { username } = req.params;
     const requesterId = req.user?._id;
 
-    const user = await User.findOne({ username: username.toLowerCase() })
-      .populate("craftsmanProfileId", "profilePicture");
+    const user = await User.findOne({ username: username.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -115,14 +100,8 @@ export const getPublicProfile = async (req, res) => {
         if (!requesterId) {
           canSeeFullProfile = false;
         } else {
-          // Check if connected (either follows or is followed by)
-          const isConnected = await Follow.exists({
-            $or: [
-              { follower: requesterId, following: user._id },
-              { follower: user._id, following: requesterId }
-            ]
-          });
-          if (!isConnected) canSeeFullProfile = false;
+          // Connections model deleted, default to private if not owner
+          canSeeFullProfile = false;
         }
       }
     }
@@ -134,7 +113,7 @@ export const getPublicProfile = async (req, res) => {
       _id: user._id,
       name: user.name,
       username: user.username,
-      profilePicture: user.profilePicture || user.craftsmanProfileId?.profilePicture || "",
+      profilePicture: user.profilePicture || "",
       isVerified: user.isVerified,
       createdAt: user.createdAt,
       connectedAccounts: user.connectedAccounts || {},
@@ -153,16 +132,10 @@ export const getPublicProfile = async (req, res) => {
       data.workType = user.workType;
       data.gender = user.gender;
       data.professionalLinks = user.professionalLinks;
-      data.companyDetails = user.companyDetails;
       data.pronouns = user.pronouns;
       data.availabilityStatus = user.availabilityStatus;
       data.hourlyRate = user.hourlyRate;
       data.openToWork = user.openToWork;
-      data.gamification = {
-        level: user.gamification?.level || 1,
-        xp: user.gamification?.xp || 0,
-        badges: user.gamification?.badges || [],
-      };
 
       // Respect individual preference toggles
       if (privacy.showLocation !== false || isOwner) {
@@ -170,13 +143,8 @@ export const getPublicProfile = async (req, res) => {
       }
 
       if (privacy.showFollowerCount !== false || isOwner) {
-        // Query counts from the dedicated Follow model for scalability
-        const [followersCount, followingCount] = await Promise.all([
-          Follow.countDocuments({ following: user._id }),
-          Follow.countDocuments({ follower: user._id })
-        ]);
-        data.followersCount = followersCount;
-        data.followingCount = followingCount;
+        data.followersCount = 0;
+        data.followingCount = 0;
       }
 
       if (privacy.showOnlineStatus !== false || isOwner) {
@@ -211,9 +179,6 @@ export const updateUserProfile = async (req, res) => {
     user.location = req.body.location || user.location;
     user.addresses = req.body.addresses || user.addresses;
     user.professionalLinks = req.body.professionalLinks || user.professionalLinks;
-    user.companyDetails = req.body.companyDetails || user.companyDetails;
-    user.payoutMethod = req.body.payoutMethod || user.payoutMethod;
-    user.bankDetails = req.body.bankDetails || user.bankDetails;
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
     
     if (req.body.username && req.body.username !== user.username) {
@@ -222,9 +187,7 @@ export const updateUserProfile = async (req, res) => {
       user.username = req.body.username.toLowerCase();
     }
     
-    if (req.body.role && ["user", "patron"].includes(req.body.role)) {
-        user.role = req.body.role;
-    }
+
     
     if (req.body.hasCompletedOnboarding !== undefined) {
        user.hasCompletedOnboarding = req.body.hasCompletedOnboarding;
@@ -253,7 +216,7 @@ export const getMe = async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     res.status(200).json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to fetch achievements" });
+    res.status(500).json({ success: false, message: "Failed to fetch profile" });
   }
 };
 
@@ -263,21 +226,7 @@ export const getMe = async (req, res) => {
  * @access  Private
  */
 export const getXPHistory = async (req, res) => {
-  try {
-    const TokenTransaction = (await import("../models/TokenTransaction.model.js")).default;
-    const transactions = await TokenTransaction.find({ 
-      user: req.user._id, 
-      xpAmount: { $gt: 0 } 
-    }).sort({ createdAt: -1 }).limit(50).lean();
-
-    res.json({
-      success: true,
-      data: transactions
-    });
-  } catch (error) {
-    logger.error("Fetch XP history error:", error);
-    res.status(500).json({ success: false, message: "Failed to fetch XP history" });
-  }
+  res.status(404).json({ success: false, message: "Endpoint deprecated" });
 };
 
 /**
@@ -286,49 +235,7 @@ export const getXPHistory = async (req, res) => {
  * @access  Private
  */
 export const getUserAchievements = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const lastCheckIn = user.gamification?.streak?.lastCheckIn;
-    const dailyInteractionCompleted = lastCheckIn && new Date(lastCheckIn) >= today;
-
-    const Post = (await import("../models/Post.model.js")).default;
-    const devlogCount = await Post.countDocuments({ user: userId, postType: 'devlog', status: { $ne: 'deleted' } });
-    
-    const Codex = (await import("../models/Codex.model.js")).default;
-    const codexCount = await Codex.countDocuments({ author: userId, isPublished: true, isDeleted: false });
-
-    const achievements = [
-      { id: 'daily_interaction', label: 'Daily Interaction', xp: '+50 XP', completed: !!dailyInteractionCompleted },
-      { id: 'devlog_launch', label: 'Devlog Launch', xp: '+300 XP', completed: devlogCount > 0 },
-      { id: 'codex_publication', label: 'Codex Publication', xp: '+200 XP', completed: codexCount > 0 },
-      { id: 'identity_verification', label: 'Identity Verification', xp: '+500 XP', completed: !!user.isVerified }
-    ];
-
-    const tokenRewards = [
-      { id: 'daily_reward', label: 'Daily Reward', amount: '0.5 TKNS', description: 'Log in every day', completed: !!dailyInteractionCompleted },
-      { id: 'devlog_reward', label: 'Devlog Launch', amount: '1 TKNS', description: 'Launch your first devlog', completed: devlogCount > 0 },
-      { id: 'codex_reward', label: 'Codex Quality', amount: '20 TKNS', description: 'Publish a high-quality codex', completed: codexCount > 0 },
-      { id: 'referral_reward', label: 'Refer Friends', amount: '10 TKNS', description: 'Invite craftsmen to join', completed: false }
-    ];
-
-    res.json({
-      success: true,
-      data: {
-        achievements,
-        tokenRewards,
-        totalTokens: user.walletBalance || 0,
-        totalXP: user.gamification?.xp || 0,
-        level: user.gamification?.level || 1
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
+  res.status(404).json({ success: false, message: "Endpoint deprecated" });
 };
 
 /**
@@ -589,14 +496,8 @@ export const getLoginHistory = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Fetch the last 10 session login logs from the scalable AuditLog collection
-    const logs = await AuditLog.find({
-      targetId: req.user._id,
-      targetType: "User",
-      action: "Session Login",
-    })
-      .sort({ timestamp: -1 })
-      .limit(10);
+    // AuditLog collection deleted, returning empty logs
+    const logs = [];
 
     const normalizeIp = (ip) => {
       if (!ip) return "Unknown";
@@ -960,7 +861,7 @@ export const deactivateAccount = async (req, res) => {
 export const getSettingsData = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .select("name email username profilePicture coverPicture bio skills interests notificationPreferences privacySettings appearancePreferences connectedAccounts blockedUsers isHost professionalLinks pronouns availabilityStatus hourlyRate openToWork emailVerified twoFactorEnabled gender workType location")
+      .select("name email username profilePicture coverPicture bio skills interests notificationPreferences privacySettings appearancePreferences connectedAccounts blockedUsers professionalLinks pronouns availabilityStatus hourlyRate openToWork emailVerified twoFactorEnabled gender workType location")
       .populate("blockedUsers", "name username profilePicture")
       .lean();
 

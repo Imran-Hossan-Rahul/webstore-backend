@@ -5,11 +5,7 @@ import {
   upload,
   uploadUserProfilePicture,
   uploadUserCoverPicture,
-  uploadCraftsmanProfilePicture,
-  uploadCraftsmanCoverPicture,
   getUploadStatus,
-  uploadPostImage,
-  uploadChallengeScreenshot,
   uploadImage,
 } from "../controllers/imageUploadController.js";
 import { uploadLimiter } from "../middlewares/rateLimiter.js";
@@ -34,34 +30,9 @@ router.post(
   uploadUserCoverPicture
 );
 
-// Craftsman image uploads
-router.post(
-  "/craftsman/profile-picture",
-  protect,
-  upload.single("image"),
-  uploadCraftsmanProfilePicture
-);
 
-router.post(
-  "/craftsman/cover-picture",
-  protect,
-  upload.single("image"),
-  uploadCraftsmanCoverPicture
-);
 
-router.post(
-  "/post-image",
-  protect,
-  upload.single("image"),
-  uploadPostImage
-);
 
-router.post(
-  "/challenge-screenshot",
-  protect,
-  upload.single("image"),
-  uploadChallengeScreenshot
-);
 
 router.post(
   "/image",

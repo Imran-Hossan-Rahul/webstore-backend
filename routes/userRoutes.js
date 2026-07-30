@@ -1,6 +1,5 @@
 import express from "express";
 import { protect, optionalProtect } from "../middlewares/authMiddleware.js";
-import { allowRoles } from "../middlewares/rolesMiddleware.js";
 import { cacheMiddleware } from "../utils/cache.js";
 
 import { 
@@ -34,13 +33,8 @@ import {
   deactivateAccount,
   getSettingsData,
 } from "../controllers/userController.js";
-import { getFeaturedCraftsmen } from "../controllers/featuredCraftsmenController.js";
-import { getEngineerHistory } from "../controllers/analyticsController.js";
 
 const router = express.Router();
-
-// Featured Craftsmen (Public)
-router.get("/featured-craftsmen", getFeaturedCraftsmen);
 
 // Profile Routes
 router.get("/profile", optionalProtect, getUserProfile);
@@ -104,25 +98,9 @@ router.delete("/api-tokens/:tokenId", protect, revokeApiToken);
 // Account Deactivation
 router.post("/deactivate", protect, deactivateAccount);
 
-// ─────────────────────────────────────────────────────────────────
-// Follow Routes
-// ─────────────────────────────────────────────────────────────────
-import { toggleFollow, getFollowStatus, getFollowStats, getFollowing } from "../controllers/followController.js";
-router.post("/follow/:targetUserId", protect, toggleFollow);
-router.get("/follow-status/:targetUserId", protect, getFollowStatus);
-router.get("/follow-stats/:userId", getFollowStats);
-router.get("/following", protect, getFollowing);
 
-// Craftsman / Craftsman route
-router.get("/engineer", protect, allowRoles("craftsman"), (req, res) => {
-  res.json({ success: true, message: "Craftsman dashboard" });
-});
-router.get("/engineer/history", protect, allowRoles("craftsman"), getEngineerHistory);
 
-// Patron / Hirer route
-router.get("/hirer", protect, allowRoles("patron"), (req, res) => {
-  res.json({ success: true, message: "Patron dashboard" });
-});
+
 
 export default router;
 

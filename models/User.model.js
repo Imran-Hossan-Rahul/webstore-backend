@@ -39,27 +39,12 @@ const userSchema = new Schema(
     },
     password: { type: String, required: true, select: false },
     passwordHistory: [{ type: String, select: false }],
-    role: { type: String, enum: ["user", "patron", "admin", "superadmin"], default: "user" },
-    
-    // Patron Account Tracking
-    companyDetails: {
-      name: { type: String, default: "" },
-      website: { type: String, default: "" },
-      industry: { type: String, default: "" }
-    },
-    
-    // Craftsman Account Tracking
-    hasCraftsmanAccount: { type: Boolean, default: false },
-    craftsmanProfileId: {
-      type: Schema.Types.ObjectId,
-      ref: "CraftsmanProfile",
-    },
-    
+    role: { type: String, enum: ["user", "admin"], default: "user" },
+
     skills: { type: [String], default: [] },
     interests: { type: [String], default: [] }, // NEW FIELD
     workType: { type: String, enum: ["solo", "team"], default: "solo" },
     gender: { type: String, default: "" },
-    isSuperAdmin: { type: Boolean, default: false, select: false },
 
     loginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date },

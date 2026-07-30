@@ -8,7 +8,9 @@ export const cacheMiddleware = (duration) => {
     // Only cache GET requests
     if (req.method !== 'GET') return next();
 
-    const key = `__express__${req.originalUrl}` || req.url;
+    // 🔒 SECURITY FIX: Append user ID to cache key to prevent cross-tenant data leaks
+    const userKey = req.user ? `_user_${req.user._id}` : '_public';
+    const key = `__express__${req.originalUrl || req.url}${userKey}`;
     const cachedBody = appCache.get(key);
     
     if (cachedBody) {

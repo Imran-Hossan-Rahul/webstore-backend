@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Chat from "../models/Chat.model.js";
 import Message from "../models/Message.model.js";
 import User from "../models/User.model.js";
-import Follow from "../models/Follow.model.js";
 import { createNotification } from "./notificationController.js";
 import { chatMediaQueue } from "../queues/chatMediaQueue.js";
 import { chatMessageQueue } from "../queues/chatMessageQueue.js";
@@ -12,10 +11,41 @@ import { getIO } from "../utils/socketManager.js";
 export const getUsers = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const users = await User.find({ _id: { $ne: userId } })
+    const currentUser = await User.findById(userId);
+    
+    let query = { _id: { $ne: userId } };
+    if (currentUser && currentUser.role !== 'admin') {
+      query.role = 'admin';
+    }
+
+    const users = await User.find(query)
       .select("username name email profilePicture role createdAt lastActiveAt")
       .sort({ createdAt: -1 });
     res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Create or get Support Chat
+export const getOrCreateSupportChat = async (req, res) => {
+  try {
+    const currentUserId = req.user._id || req.user.id;
+    
+    let chat = await Chat.findOne({
+      participants: currentUserId,
+      isSupportChat: true
+    }).populate("participants", "username name email profilePicture role lastActiveAt");
+
+    if (!chat) {
+      chat = await Chat.create({
+        participants: [currentUserId],
+        isSupportChat: true
+      });
+      chat = await chat.populate("participants", "username name email profilePicture role lastActiveAt");
+    }
+
+    res.json({ success: true, chat });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -31,21 +61,24 @@ export const getOrCreateChat = async (req, res) => {
       participants: { $all: [currentUserId, userId] }
     }).populate("participants", "username name email profilePicture role lastActiveAt");
 
-    const targetUser = await User.findById(userId).select("privacySettings name username followers");
+    const targetUser = await User.findById(userId).select("privacySettings name username followers role");
     if (!targetUser) return res.status(404).json({ success: false, message: "User not found" });
+
+    const currentUser = await User.findById(currentUserId);
+    if (currentUser && currentUser.role !== 'admin' && targetUser.role !== 'admin') {
+      return res.status(403).json({ success: false, message: "You can only chat with support admins." });
+    }
 
     const privacy = targetUser.privacySettings || {};
 
     // ── 1. Messaging Permission Check ────────────────────────────────────────
-    if (!chat) { // Only block NEW chats if strict, but professional systems often block messages too
+    if (!chat) {
        if (privacy.whoCanMessage === "nobody") {
          return res.status(403).json({ success: false, message: `${targetUser.name} has disabled direct messages.` });
        }
        if (privacy.whoCanMessage === "followers") {
-         const isFollowing = await Follow.exists({ follower: currentUserId, following: userId });
-         if (!isFollowing) {
-           return res.status(403).json({ success: false, message: `Only followers can message ${targetUser.name}.` });
-         }
+         // Followers model deleted, block it by default
+         return res.status(403).json({ success: false, message: `Only followers can message ${targetUser.name}, but followers feature is disabled.` });
        }
     }
 
@@ -67,10 +100,14 @@ export const getUserChats = async (req, res) => {
   try {
     const rawUserId = req.user._id || req.user.id;
     const userObjId = new mongoose.Types.ObjectId(rawUserId);
+    const currentUser = await User.findById(rawUserId);
 
-    const chats = await Chat.find({
-      participants: rawUserId
-    })
+    let query = { participants: rawUserId };
+    if (currentUser && currentUser.role === 'admin') {
+      query = { $or: [{ participants: rawUserId }, { isSupportChat: true }] };
+    }
+
+    const chats = await Chat.find(query)
       .populate("participants", "username name email profilePicture role lastActiveAt")
       .populate("lastMessage.sender", "username name")
       .sort({ updatedAt: -1 })
@@ -114,7 +151,11 @@ export const getChatMessages = async (req, res) => {
 
     // Check if user is participant
     const userId = req.user._id || req.user.id;
-    if (!chat.participants.some(p => p._id.toString() === userId.toString())) {
+    const currentUser = await User.findById(userId);
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    
+    const isParticipant = chat.participants.some(p => p._id.toString() === userId.toString());
+    if (!isParticipant && !(isAdmin && chat.isSupportChat)) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
@@ -171,9 +212,12 @@ export const sendMessage = async (req, res) => {
 
     // Check if user is participant
     const userIdStr = userId.toString();
+    const currentUser = await User.findById(userId);
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    
     const isParticipant = chat.participants.some(p => p.toString() === userIdStr);
     
-    if (!isParticipant) {
+    if (!isParticipant && !(isAdmin && chat.isSupportChat)) {
       return res.status(403).json({ success: false, message: "You are not a participant of this chat" });
     }
 
@@ -187,10 +231,7 @@ export const sendMessage = async (req, res) => {
         return res.status(403).json({ success: false, message: "This user has disabled messages." });
       }
       if (rPrivacy.whoCanMessage === "followers") {
-        const isFollowing = await Follow.exists({ follower: userId, following: recipientId });
-        if (!isFollowing) {
-          return res.status(403).json({ success: false, message: "Only followers can message this user." });
-        }
+        return res.status(403).json({ success: false, message: "Only followers can message this user, but followers feature is disabled." });
       }
     }
 
@@ -255,6 +296,11 @@ export const sendMessage = async (req, res) => {
           io.emit(`user:${participantId}:newMessage`, { chatId, message: populatedMessage });
         }
       });
+      
+      // Support Chat broadcast to all admins
+      if (chat.isSupportChat) {
+        io.to("admins_room").emit("global:support:newMessage", { chatId, message: populatedMessage });
+      }
     }
 
     // ── Slow path: enqueue fan-out (notifications for offline users) ──────
@@ -322,8 +368,10 @@ export const uploadMedia = async (req, res) => {
     const chat = await Chat.findById(chatId);
     if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
 
+    const currentUser = await User.findById(userId);
+    const isAdmin = currentUser && currentUser.role === 'admin';
     const isParticipant = chat.participants.some(p => p.toString() === userId.toString());
-    if (!isParticipant) return res.status(403).json({ success: false, message: "Unauthorized" });
+    if (!isParticipant && !(isAdmin && chat.isSupportChat)) return res.status(403).json({ success: false, message: "Unauthorized" });
 
     const isImage = req.file.mimetype.startsWith("image/");
     const fileType = isImage ? "image" : "file";
@@ -398,13 +446,20 @@ export const getUnreadChatsCount = async (req, res) => {
     const userId = new mongoose.Types.ObjectId(rawUserId);
     
     // Highly Scalable Aggregation Pipeline (supports millions of users):
-    // 1. Match ONLY the chats where the current user is a participant (Solves the cross-account bug).
+    // 1. Match ONLY the chats where the current user is a participant OR it's a support chat (if admin).
     // 2. Perform a lookup on the 'messages' collection for each chat.
     // 3. Find messages NOT sent by the user, and NOT read by the user.
     // 4. Use $limit: 1 to stop searching as soon as ONE unread message is found (O(1) early exit).
     // 5. Count how many chats have at least one such unread message.
+    
+    const currentUser = await User.findById(userId);
+    let matchQuery = { participants: userId };
+    if (currentUser && currentUser.role === 'admin') {
+      matchQuery = { $or: [{ participants: userId }, { isSupportChat: true }] };
+    }
+
     const unreadCountAggregate = await Chat.aggregate([
-      { $match: { participants: userId } },
+      { $match: matchQuery },
       { 
         $lookup: {
           from: "messages",

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const chatSchema = new mongoose.Schema({
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  isSupportChat: { type: Boolean, default: false },
   lastMessage: {
     content: String,
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

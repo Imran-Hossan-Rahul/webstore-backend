@@ -2,19 +2,31 @@ import MarketProduct from '../models/MarketProduct.model.js';
 import { clearCache } from '../utils/cache.js';
 import cloudinary from '../services/cloudinary.js';
 import fs from 'fs';
-import { postLikeQueue } from '../queues/postLikeQueue.js';
+
 import logger from '../utils/logger.js';
 
 export const getProducts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 1000; // Large default for backwards compatibility
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
     
     let query = {};
     if (req.query.ids) {
         const idArray = req.query.ids.split(',');
+        if (idArray.length > 100) return res.status(400).json({ error: 'Too many IDs requested' });
         query._id = { $in: idArray };
+    } else {
+        if (req.query.search) {
+            query.$or = [
+                { title: { $regex: req.query.search, $options: 'i' } },
+                { sku: { $regex: req.query.search, $options: 'i' } },
+                { tags: { $regex: req.query.search, $options: 'i' } }
+            ];
+        }
+        if (req.query.category_id) query.category_id = req.query.category_id;
+        if (req.query.subCategory_id) query.subCategory_id = req.query.subCategory_id;
+        if (req.query.childCategory_id) query.childCategory_id = req.query.childCategory_id;
     }
 
     // We use .lean() for maximum performance and .populate for joins
@@ -28,10 +40,13 @@ export const getProducts = async (req, res) => {
         MarketProduct.countDocuments(query)
     ]);
     
-    // Map _id to id for frontend compatibility
+    // Map _id to id for frontend compatibility, and stringify arrays for frontend JSON.parse expectations
     const mappedProducts = products.map(p => ({
       ...p,
       id: p._id,
+      photos: Array.isArray(p.photos) ? JSON.stringify(p.photos) : p.photos,
+      specifications: Array.isArray(p.specifications) ? JSON.stringify(p.specifications) : p.specifications,
+      variantGroups: Array.isArray(p.variantGroups) ? JSON.stringify(p.variantGroups) : p.variantGroups,
       wholesaler: p.wholesaler_id ? { ...p.wholesaler_id, id: p.wholesaler_id._id } : null
     }));
     
@@ -57,6 +72,9 @@ export const getProductById = async (req, res) => {
     if (!product) return res.status(404).json({ error: 'Not found' });
     
     product.id = product._id;
+    product.photos = Array.isArray(product.photos) ? JSON.stringify(product.photos) : product.photos;
+    product.specifications = Array.isArray(product.specifications) ? JSON.stringify(product.specifications) : product.specifications;
+    product.variantGroups = Array.isArray(product.variantGroups) ? JSON.stringify(product.variantGroups) : product.variantGroups;
     if (product.wholesaler_id) {
       product.wholesaler = { ...product.wholesaler_id, id: product.wholesaler_id._id };
     }
@@ -102,22 +120,22 @@ export const createProduct = async (req, res) => {
           // We continue to next file even if one fails
         }
         
-        // Clean up temp file
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+        // Clean up temp file asynchronously
+        fs.promises.unlink(file.path).catch(err => {
+          if (err.code !== 'ENOENT') console.error("Temp file cleanup error:", err);
+        });
       }
       
-      // If we already had photos in the payload (maybe from previous flow), merge them or just use the newly uploaded ones.
-      // Usually, it's just the new uploads.
-      const existingPhotos = data.photos ? JSON.parse(data.photos) : [];
-      const combinedPhotos = [...existingPhotos, ...uploadedUrls];
-      
-      data.photos = JSON.stringify(combinedPhotos);
+      const existingPhotos = data.photos ? (typeof data.photos === 'string' ? JSON.parse(data.photos) : data.photos) : [];
+      data.photos = [...existingPhotos, ...uploadedUrls];
     } else if (!data.photos) {
-      // Ensure photos is at least an empty array string
-      data.photos = "[]";
+      data.photos = [];
+    } else if (typeof data.photos === 'string') {
+      data.photos = JSON.parse(data.photos);
     }
+    
+    if (typeof data.specifications === 'string') data.specifications = JSON.parse(data.specifications);
+    if (typeof data.variantGroups === 'string') data.variantGroups = JSON.parse(data.variantGroups);
 
     const product = await MarketProduct.create(data);
     const result = product.toObject();
@@ -131,7 +149,7 @@ export const createProduct = async (req, res) => {
     // If error happens before cleanup, try to cleanup files
     if (req.files) {
       req.files.forEach(file => {
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        fs.promises.unlink(file.path).catch(err => { if (err.code !== 'ENOENT') console.error(err); });
       });
     }
     res.status(400).json({ error: error.message });
@@ -161,16 +179,17 @@ export const updateProduct = async (req, res) => {
           console.error("Cloudinary upload error:", uploadErr);
         }
         
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        fs.promises.unlink(file.path).catch(err => { if (err.code !== 'ENOENT') console.error(err); });
       }
       
-      const existingPhotos = data.photos ? JSON.parse(data.photos) : [];
-      const combinedPhotos = [...existingPhotos, ...uploadedUrls];
-      
-      data.photos = JSON.stringify(combinedPhotos);
+      const existingPhotos = data.photos ? (typeof data.photos === 'string' ? JSON.parse(data.photos) : data.photos) : [];
+      data.photos = [...existingPhotos, ...uploadedUrls];
+    } else if (typeof data.photos === 'string') {
+      data.photos = JSON.parse(data.photos);
     }
     
-    // DO NOT parse specifications back to array! The model expects a String (JSON stringified).
+    if (typeof data.specifications === 'string') data.specifications = JSON.parse(data.specifications);
+    if (typeof data.variantGroups === 'string') data.variantGroups = JSON.parse(data.variantGroups);
 
     const product = await MarketProduct.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!product) return res.status(404).json({ error: 'Not found' });
@@ -184,7 +203,7 @@ export const updateProduct = async (req, res) => {
   } catch (error) {
     if (req.files) {
       req.files.forEach(file => {
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        fs.promises.unlink(file.path).catch(err => { if (err.code !== 'ENOENT') console.error(err); });
       });
     }
     res.status(400).json({ error: error.message });
@@ -218,21 +237,16 @@ export const likeProduct = async (req, res) => {
 
     const newLikes = isLiked ? Math.max(0, (product.likes || 0) - 1) : (product.likes || 0) + 1;
     
-    await postLikeQueue.add("post-like", {
-        postId: id,
-        userId: userId,
-        action: action,
-        itemType: "product"
-    }, {
-        removeOnComplete: true,
-        attempts: 3
-    });
+    if (action === "like") {
+      await MarketProduct.findByIdAndUpdate(id, { $inc: { likes: 1 }, $addToSet: { likedBy: userId } });
+    } else {
+      await MarketProduct.findByIdAndUpdate(id, { $inc: { likes: -1 }, $pull: { likedBy: userId } });
+    }
 
     res.status(200).json({
       success: true,
       likes: newLikes,
-      isLiked: !isLiked,
-      queued: true
+      isLiked: !isLiked
     });
 
   } catch (error) {

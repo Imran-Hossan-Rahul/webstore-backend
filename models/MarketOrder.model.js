@@ -8,7 +8,7 @@ const marketOrderSchema = new mongoose.Schema({
     type: String, // Essential for guest checkout
   },
   address: {
-    type: String, // JSON string of division -> district -> upazila
+    type: Object, // division, district, upazila
     required: true,
   },
   status: {

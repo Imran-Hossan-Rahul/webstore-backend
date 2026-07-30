@@ -8,7 +8,6 @@ import {
   refreshTokenHandler,
   logoutHandler,
   getUserCount,
-  getCraftsmen,
   verifyEmail,
   resendVerificationEmail,
   verify2FALogin,
@@ -19,8 +18,8 @@ import { validate } from "../middlewares/validate.js";
 import { registerSchema, loginSchema } from "../validation/authValidation.js";
 import logger from "../utils/logger.js";
 import { NODE_ENV } from "../config/index.js";
-import { adminOnly, superAdminOnly, protect } from "../middlewares/authMiddleware.js";
-import { createAdminUserController, deleteAdminController } from "../controllers/authController.js";
+import { adminOnly, protect } from "../middlewares/authMiddleware.js";
+import { createAdminUserController } from "../controllers/authController.js";
 import authLimiter from "../utils/authLimiter.js";
 
 
@@ -97,16 +96,9 @@ router.post(
   auditWrapper(createAdminUserController)
 );
 
-router.delete(
-  "/admin/delete-admin/:id",
-  protect,
-  superAdminOnly, // Only super admin allowed
-  auditWrapper(deleteAdminController)
-);
 
 router.get("/count", getUserCount);
 
-router.get("/craftsmen", getCraftsmen);
 
 // Email Verification
 router.get("/verify-email", auditWrapper(verifyEmail));
