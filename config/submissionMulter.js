@@ -1,20 +1,28 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs/promises";
+import fs from "fs";
+
+const uploadDir = path.resolve("uploads/submissions");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = "uploads/submissions";
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error);
-    }
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
+    const sanitizedOriginalName = path.basename(file.originalname);
+    const ext = path.extname(sanitizedOriginalName);
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `submission-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const safeName = `submission-${uniqueSuffix}${ext}`;
+    
+    const finalPath = path.join(uploadDir, safeName);
+    if (!finalPath.startsWith(uploadDir)) {
+      return cb(new Error("Invalid file path detected"));
+    }
+    
+    cb(null, safeName);
   },
 });
 
@@ -37,3 +45,4 @@ export const submissionUpload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
   fileFilter: fileFilter,
 });
+

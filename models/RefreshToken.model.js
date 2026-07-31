@@ -60,10 +60,14 @@ RefreshTokenSchema.methods.matchesToken = function (
   encryptionKey = null
 ) {
   if (this.revoked || this.isExpired()) return false;
-  let hash = hashToken(token, secret);
+  const hash = hashToken(token, secret);
   if (encryptionKey) {
-    hash = encryptTokenHash(hash, encryptionKey);
-    return hash === this.tokenHash;
+    try {
+      const decryptedHash = decryptTokenHash(this.tokenHash, encryptionKey);
+      return hash === decryptedHash;
+    } catch (e) {
+      return false;
+    }
   }
   return hash === this.tokenHash;
 };

@@ -55,7 +55,7 @@ router.post('/orders', protect, orderController.createOrder);
 router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrderStatus);
 
 // Procurement
-router.get('/procurement/candidates', procurementController.getProcurementCandidates);
-router.post('/procurement/run', procurementController.createProcurementRun);
+router.get('/procurement/candidates', protect, adminOnly, procurementController.getProcurementCandidates);
+router.post('/procurement/run', protect, adminOnly, procurementController.createProcurementRun);
 
 export default router;

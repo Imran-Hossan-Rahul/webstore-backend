@@ -508,9 +508,9 @@ export const getCraftsmen = async (req, res) => {
 
     const result = craftsmen.map((craftsman) => ({
       _id: craftsman._id.toString(),
-      userId: craftsman.userId._id.toString(),
-      name: craftsman.displayName || craftsman.userId.name || "Unknown",
-      profilePic: craftsman.userId.profilePicture || "/default-profile.png",
+      userId: craftsman.userId?._id?.toString() || "",
+      name: craftsman.displayName || craftsman.userId?.name || "Unknown",
+      profilePic: craftsman.userId?.profilePicture || "/default-profile.png",
       skills: craftsman.skills && craftsman.skills.length
         ? craftsman.skills
         : ["#React", "#Next.js", "#Software Development"],

@@ -2,17 +2,27 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
+const uploadDir = path.resolve("uploads/challenges");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = "uploads/challenges";
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
+    const sanitizedOriginalName = path.basename(file.originalname);
+    const ext = path.extname(sanitizedOriginalName);
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `challenge-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const safeName = `challenge-${uniqueSuffix}${ext}`;
+    
+    const finalPath = path.join(uploadDir, safeName);
+    if (!finalPath.startsWith(uploadDir)) {
+      return cb(new Error("Invalid file path detected"));
+    }
+    
+    cb(null, safeName);
   },
 });
 
@@ -35,3 +45,4 @@ export const challengeUpload = multer({
   fileFilter: fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
+

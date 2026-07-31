@@ -2,6 +2,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import logger from "../utils/logger.js";
 
 const userSchema = new Schema(
   {
@@ -366,11 +367,9 @@ userSchema.methods.incrementLoginAttempts = async function (ip) {
 
     await this.save();
 
-    console.log(
-      `Login attempts for ${this.email}: ${this.loginAttempts}, locked until: ${this.lockUntil}`
-    );
+    logger.info(`[AUTH] Login attempts for ${this.email}: ${this.loginAttempts}, locked until: ${this.lockUntil}`);
   } catch (err) {
-    console.error("Error incrementing login attempts:", err);
+    logger.error(`[AUTH] Error incrementing login attempts: ${err.message}`);
     throw err;
   }
 };

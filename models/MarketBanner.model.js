@@ -29,5 +29,5 @@ const marketBannerSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-const MarketBanner = mongoose.model('MarketBanner', marketBannerSchema);
+const MarketBanner = mongoose.models.MarketBanner || mongoose.model('MarketBanner', marketBannerSchema);
 export default MarketBanner;

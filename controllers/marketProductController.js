@@ -27,6 +27,15 @@ export const getProducts = async (req, res) => {
         if (req.query.category_id) query.category_id = req.query.category_id;
         if (req.query.subCategory_id) query.subCategory_id = req.query.subCategory_id;
         if (req.query.childCategory_id) query.childCategory_id = req.query.childCategory_id;
+        if (req.query.isFeatured) query.isFeatured = req.query.isFeatured === 'true';
+        if (req.query.isPopular) query.isPopular = req.query.isPopular === 'true';
+        
+        if (req.query.minPrice !== undefined || req.query.maxPrice !== undefined) {
+            query.selling_price = {};
+            if (req.query.minPrice !== undefined && req.query.minPrice !== '') query.selling_price.$gte = Number(req.query.minPrice);
+            if (req.query.maxPrice !== undefined && req.query.maxPrice !== '') query.selling_price.$lte = Number(req.query.maxPrice);
+            if (Object.keys(query.selling_price).length === 0) delete query.selling_price;
+        }
     }
 
     // We use .lean() for maximum performance and .populate for joins

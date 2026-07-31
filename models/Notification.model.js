@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   type: { 
     type: String, 
-    enum: ["message", "follow", "like", "comment", "purchase", "system"],
+    enum: ["message", "follow", "like", "comment", "purchase", "system", "job", "challenge"],
     required: true 
   },
   title: { type: String, required: true },
@@ -17,4 +17,4 @@ const notificationSchema = new mongoose.Schema({
 
 notificationSchema.index({ recipient: 1, read: 1, createdAt: -1 });
 
-export default mongoose.model("Notification", notificationSchema);
+export default mongoose.models.Notification || mongoose.model("Notification", notificationSchema);

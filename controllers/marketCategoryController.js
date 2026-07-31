@@ -35,7 +35,6 @@ export const getCategories = async (req, res) => {
 export const getAllCategories = async (req, res) => {
   try {
     const categories = await MarketCategory.find({}).sort({ isSubcategory: 1, createdAt: -1 }).populate('parentCategory', 'name');
-    import('fs').then(fs => fs.appendFileSync('C:/Codalina/codalina-backend/cat-log.txt', JSON.stringify({count: categories.length, first: categories[0]}) + '\n'));
     res.json(categories);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

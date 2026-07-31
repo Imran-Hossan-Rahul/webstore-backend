@@ -9,16 +9,27 @@ export const validate =
   async (req, res, next) => {
     const ip = req.ip || req.connection.remoteAddress;
     const now = Date.now();
-    validationAttempts[ip] = (validationAttempts[ip] || []).filter(
-      (ts) => now - ts < WINDOW_MS
-    );
+    
+    if (validationAttempts[ip]) {
+      validationAttempts[ip] = validationAttempts[ip].filter(
+        (ts) => now - ts < WINDOW_MS
+      );
+      if (validationAttempts[ip].length === 0) {
+        delete validationAttempts[ip];
+      }
+    }
 
-    if (validationAttempts[ip].length >= RATE_LIMIT) {
+    const currentAttempts = validationAttempts[ip] || [];
+    if (currentAttempts.length >= RATE_LIMIT) {
       Logger.warn(`⚠️ Validation rate-limit exceeded for IP: ${ip}`);
       return res.status(429).json({
         success: false,
         message: "Too many validation attempts. Please try again later.",
       });
+    }
+    
+    if (!validationAttempts[ip]) {
+      validationAttempts[ip] = [];
     }
     validationAttempts[ip].push(now);
 

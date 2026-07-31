@@ -1,5 +1,5 @@
 // utils/cleanupTokens.js
-import RefreshToken from "../models/RefreshToken.js";
+import RefreshToken from "../models/RefreshToken.model.js";
 import logger from "./logger.js";
 
 export const cleanupExpiredTokens = async () => {

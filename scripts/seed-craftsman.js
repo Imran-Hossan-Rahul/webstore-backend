@@ -1,3 +1,4 @@
+/*
  * SEED SCRIPT — Wipe all users & create the single craftsman account.
  * Usage: node scripts/seed-craftsman.js
  */

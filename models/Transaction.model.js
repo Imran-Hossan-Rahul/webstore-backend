@@ -42,5 +42,5 @@ const transactionSchema = new mongoose.Schema({
   feeAmount: Number // Platform commission for this specific transaction
 }, { timestamps: true });
 
-const Transaction = mongoose.model("Transaction", transactionSchema);
+const Transaction = mongoose.models.Transaction || mongoose.model("Transaction", transactionSchema);
 export default Transaction;

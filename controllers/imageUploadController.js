@@ -8,11 +8,15 @@ import { profileImageQueue } from "../queues/index.js";
 
 
 // Configure multer for file upload
+import fsSync from "fs";
+
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
+  destination: (req, file, cb) => {
     const uploadDir = "uploads/temp";
     try {
-      await fs.mkdir(uploadDir, { recursive: true });
+      if (!fsSync.existsSync(uploadDir)) {
+        fsSync.mkdirSync(uploadDir, { recursive: true });
+      }
       cb(null, uploadDir);
     } catch (error) {
       cb(error);

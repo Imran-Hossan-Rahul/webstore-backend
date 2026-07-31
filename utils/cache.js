@@ -18,9 +18,11 @@ export const cacheMiddleware = (duration) => {
     } else {
       // Overwrite res.json to cache the body before sending
       const originalJson = res.json;
-      res.json = (body) => {
-        appCache.set(key, body, duration);
-        originalJson.call(res, body);
+      res.json = function(body) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          appCache.set(key, body, duration);
+        }
+        return originalJson.call(res, body);
       };
       next();
     }

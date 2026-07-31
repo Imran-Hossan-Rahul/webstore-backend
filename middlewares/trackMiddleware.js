@@ -1,5 +1,4 @@
 import rateLimit from "express-rate-limit";
-import { ipKeyGenerator } from "express-rate-limit";
 
 /**
  * ----------------------------
@@ -13,7 +12,7 @@ export const trackRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 min
   max: 120,
   message: { success: false, message: "Rate limit exceeded" },
-  keyGenerator: (req) => req.user?._id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
 });

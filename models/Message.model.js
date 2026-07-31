@@ -30,4 +30,4 @@ const messageSchema = new mongoose.Schema({
 messageSchema.index({ chatId: 1, createdAt: 1 });
 messageSchema.index({ sender: 1 });
 
-export default mongoose.model("Message", messageSchema);
+export default mongoose.models.Message || mongoose.model("Message", messageSchema);

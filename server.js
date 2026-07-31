@@ -105,7 +105,7 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("New patron connected:", socket.id, "User ID:", socket.user?.id);
+  logger.info(`[SOCKET] New patron connected: ${socket.id}, User ID: ${socket.user?.id}`);
 
   // 🔒 Track authenticated userId per socket for ownership checks
   let authenticatedUserId = socket.user?.id; // Use ID from JWT 
@@ -125,14 +125,14 @@ io.on("connection", (socket) => {
       const userObj = await User.findById(userId).select("role");
       if (userObj && userObj.role === 'admin') {
         socket.join("admins_room");
-        console.log(`User ${userId} joined admins_room`);
+        logger.info(`[SOCKET] User ${userId} joined admins_room`);
       }
     } catch(err) {
-      console.error("Error joining admins_room:", err);
+      logger.error(`[SOCKET] Error joining admins_room: ${err.message}`);
     }
 
     io.emit("user:status", { userId, status: "online" });
-    console.log(`User ${userId} is online. Active sockets: ${onlineUsers.get(userId).size}`);
+    logger.info(`[SOCKET] User ${userId} is online. Active sockets: ${onlineUsers.get(userId).size}`);
 
     // Send back the full list of currently online users to the newly connected socket
     const currentlyOnline = Array.from(onlineUsers.keys());
@@ -151,7 +151,7 @@ io.on("connection", (socket) => {
   // Join chat room
   socket.on("chat:join", (chatId) => {
     socket.join(chatId);
-    console.log(`Socket ${socket.id} joined chat ${chatId}`);
+    logger.info(`[SOCKET] Socket ${socket.id} joined chat ${chatId}`);
   });
 
   // Leave chat room
@@ -264,14 +264,14 @@ io.on("connection", (socket) => {
         try {
           await User.findByIdAndUpdate(authenticatedUserId, { lastActiveAt });
         } catch (err) {
-          console.error("Error saving lastActiveAt:", err);
+          logger.error(`[SOCKET] Error saving lastActiveAt: ${err.message}`);
         }
         io.emit("user:status", { userId: authenticatedUserId, status: "offline", lastActiveAt });
-        console.log(`User ${authenticatedUserId} went offline`);
+        logger.info(`[SOCKET] User ${authenticatedUserId} went offline`);
       }
       authenticatedUserId = null;
     }
-    console.log("Patron disconnected:", socket.id);
+    logger.info(`[SOCKET] Patron disconnected: ${socket.id}`);
   });
 });
 
@@ -402,24 +402,13 @@ app.use(sanitizeInput);
 app.use((req, res, next) => {
   const start = Date.now();
   
-  // Capture original end function
-  const originalEnd = res.end;
-  
-  // Override end function to log performance
-  res.end = function(...args) {
+  res.on("finish", () => {
     const duration = Date.now() - start;
-    
-    // Log slow requests (> 200ms)
     if (duration > 200) {
       logger.warn(`⚠️  SLOW REQUEST: ${req.method} ${req.path} - ${duration}ms`);
     }
-    
-    // Log all requests for debugging
     logger.info(`${req.method} ${req.originalUrl} - ${duration}ms - ${res.statusCode}`);
-    
-    // Call original end function
-    originalEnd.apply(res, args);
-  };
+  });
   
   next();
 });
@@ -473,7 +462,7 @@ app.get("/health/detailed", protect, adminOnly, async (req, res) => {
         collections: mongoose.connection.collections ? Object.keys(mongoose.connection.collections).length : 0
       },
       socket: {
-        connected: io.engine.patronsCount || 0,
+        connected: io.engine.clientsCount || 0,
         onlineUsers: onlineUsers.size
       }
     };

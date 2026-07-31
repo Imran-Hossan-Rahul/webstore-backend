@@ -32,6 +32,6 @@ const marketConfigSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-const MarketConfig = mongoose.model('MarketConfig', marketConfigSchema);
+const MarketConfig = mongoose.models.MarketConfig || mongoose.model('MarketConfig', marketConfigSchema);
 
 export default MarketConfig;

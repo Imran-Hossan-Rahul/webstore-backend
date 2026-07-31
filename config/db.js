@@ -12,7 +12,7 @@ if (!MongoDB) {
 // ---- Global cache for serverless ----
 let cached = global.mongoose;
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null, circuitOpen: false };
+  cached = global.mongoose = { conn: null, promise: null, circuitOpen: false, listenersAttached: false, healthTimer: null };
 }
 
 // ---- Mongoose strict mode ----
@@ -33,9 +33,9 @@ async function connectWithRetry(retries = 5, delay = 2000) {
     await mongoose.connect(MongoDB, {
       maxPoolSize: 20,
       minPoolSize: 5,
-      serverSelectionTimeoutMS: 30000, // Increased from 10s to 30s
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
-      connectTimeoutMS: 30000, // Added explicit connect timeout
+      connectTimeoutMS: 30000,
       retryWrites: true,
       w: "majority",
     });
@@ -61,37 +61,26 @@ async function connectWithRetry(retries = 5, delay = 2000) {
     return connectWithRetry(retries - 1, delay * 2);
   }
 }
+
 // ---- Periodic health probe ----
 function startHealthCheck() {
-  setInterval(async () => {
+  if (cached.healthTimer) return;
+  cached.healthTimer = setInterval(async () => {
     try {
-      await mongoose.connection.db.admin().ping();
-      logger.info("🔹 MongoDB healthcheck: OK");
+      if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+        await mongoose.connection.db.admin().ping();
+      }
     } catch (err) {
       logger.error("❌ MongoDB healthcheck failed: " + err.message);
     }
   }, HEALTHCHECK_INTERVAL);
 }
-// ---- Main connection function ----
-export async function connectToDatabase() {
-  if (cached.conn) return cached.conn;
 
-  if (!cached.promise) {
-    cached.promise = connectWithRetry()
-      .then((conn) => {
-        cached.conn = conn;
-        startHealthCheck();
-        return conn;
-      })
-      .catch((err) => {
-        cached.promise = null;
-        throw err;
-      });
-  }
+// ---- Setup Listeners (Once) ----
+function setupListenersOnce() {
+  if (cached.listenersAttached) return;
+  cached.listenersAttached = true;
 
-  cached.conn = await cached.promise;
-
-  // ---- Event listeners ----
   mongoose.connection.on("disconnected", async () => {
     logger.warn("⚠️ MongoDB disconnected. Attempting automatic reconnect...");
     try {
@@ -106,7 +95,7 @@ export async function connectToDatabase() {
   });
 
   mongoose.connection.on("error", (err) => {
-    logger.error(` MongoDB error: ${err.message}`);
+    logger.error(`MongoDB error: ${err.message}`);
   });
 
   mongoose.connection.on("close", () => {
@@ -117,10 +106,10 @@ export async function connectToDatabase() {
     logger.info("🔹 MongoDB replica set fully connected");
   });
 
-  // ---- Graceful shutdown ----
   const shutdown = async () => {
     try {
-      await mongoose.connection.close(false); // don't force close, allow pending ops
+      if (cached.healthTimer) clearInterval(cached.healthTimer);
+      await mongoose.connection.close(false);
       logger.info("🔌 MongoDB connection closed due to app termination");
       process.exit(0);
     } catch (err) {
@@ -131,12 +120,32 @@ export async function connectToDatabase() {
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+}
 
+// ---- Main connection function ----
+export async function connectToDatabase() {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = connectWithRetry()
+      .then((conn) => {
+        cached.conn = conn;
+        setupListenersOnce();
+        startHealthCheck();
+        return conn;
+      })
+      .catch((err) => {
+        cached.promise = null;
+        throw err;
+      });
+  }
+
+  cached.conn = await cached.promise;
   return cached.conn;
 }
 
 // ---- Healthcheck helper ----
 export function isDatabaseConnected() {
-  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
   return mongoose.connection.readyState === 1;
 }
+
