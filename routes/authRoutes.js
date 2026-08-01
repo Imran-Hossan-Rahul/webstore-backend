@@ -13,17 +13,21 @@ import {
   verify2FALogin,
   forgotPassword,
   resetPassword,
+  createAdminUserController,
+  guestLogin,
 } from "../controllers/authController.js";
 import { validate } from "../middlewares/validate.js";
 import { registerSchema, loginSchema } from "../validation/authValidation.js";
 import logger from "../utils/logger.js";
 import { NODE_ENV } from "../config/index.js";
 import { adminOnly, protect } from "../middlewares/authMiddleware.js";
-import { createAdminUserController } from "../controllers/authController.js";
 import authLimiter from "../utils/authLimiter.js";
 
 
 const router = express.Router();
+
+router.post("/guest-login", guestLogin);
+
 
 // Rate limiter
 // const authLimiter = rateLimit({

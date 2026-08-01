@@ -6,6 +6,7 @@ import * as procurementController from '../controllers/marketProcurementControll
 import * as bannerController from '../controllers/marketBannerController.js';
 import * as categoryController from '../controllers/marketCategoryController.js';
 import * as configController from '../controllers/marketConfigController.js';
+import * as deliveryController from '../controllers/marketDeliveryController.js';
 
 import { protect, adminOnly, optionalProtect } from '../middlewares/authMiddleware.js';
 import { cacheMiddleware } from '../utils/cache.js';
@@ -57,5 +58,9 @@ router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrd
 // Procurement
 router.get('/procurement/candidates', protect, adminOnly, procurementController.getProcurementCandidates);
 router.post('/procurement/run', protect, adminOnly, procurementController.createProcurementRun);
+
+
+// Delivery
+router.post('/delivery/calculate', deliveryController.calculateDelivery);
 
 export default router;

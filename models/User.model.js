@@ -40,7 +40,7 @@ const userSchema = new Schema(
     },
     password: { type: String, required: true, select: false },
     passwordHistory: [{ type: String, select: false }],
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: { type: String, enum: ["user", "admin", "guest"], default: "user" },
 
     skills: { type: [String], default: [] },
     interests: { type: [String], default: [] }, // NEW FIELD

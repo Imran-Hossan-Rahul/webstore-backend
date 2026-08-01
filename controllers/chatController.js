@@ -45,7 +45,19 @@ export const getOrCreateSupportChat = async (req, res) => {
       chat = await chat.populate("participants", "username name email profilePicture role lastActiveAt");
     }
 
-    res.json({ success: true, chat });
+    let chatObj = chat.toObject ? chat.toObject() : chat;
+    
+    // Inject the admin into the participants array for the frontend to render the avatar
+    const admin = await User.findOne({ role: { $in: ['superadmin', 'admin'] } }).sort({ role: -1 }).select("username name email profilePicture role lastActiveAt").lean();
+    if (admin) {
+      // Avoid duplicate admin if already present
+      const hasAdmin = chatObj.participants.some(p => p.role === 'admin' || p.role === 'superadmin');
+      if (!hasAdmin) {
+        chatObj.participants.push(admin);
+      }
+    }
+
+    res.json({ success: true, chat: chatObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -127,10 +139,22 @@ export const getUserChats = async (req, res) => {
 
     const unreadMap = new Map(unreadCounts.map(u => [u._id.toString(), u.count]));
 
-    const chatsWithUnread = chats.map(chat => ({
-      ...chat,
-      unreadCount: unreadMap.get(chat._id.toString()) || 0
-    }));
+    const admin = await User.findOne({ role: { $in: ['superadmin', 'admin'] } }).sort({ role: -1 }).select("username name email profilePicture role lastActiveAt").lean();
+
+    const chatsWithUnread = chats.map(chat => {
+      let chatObj = {
+        ...chat,
+        unreadCount: unreadMap.get(chat._id.toString()) || 0
+      };
+
+      if (chatObj.isSupportChat && admin) {
+        const hasAdmin = chatObj.participants.some(p => p.role === 'admin' || p.role === 'superadmin');
+        if (!hasAdmin) {
+          chatObj.participants.push(admin);
+        }
+      }
+      return chatObj;
+    });
 
     res.json({ success: true, chats: chatsWithUnread });
   } catch (error) {

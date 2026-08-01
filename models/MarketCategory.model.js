@@ -13,6 +13,11 @@ const marketCategorySchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  maxWeightPerPiece: {
+    type: Number,
+    default: 0,
+    description: 'Maximum weight per piece in grams for automated delivery costing'
+  },
   parentCategory: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MarketCategory',

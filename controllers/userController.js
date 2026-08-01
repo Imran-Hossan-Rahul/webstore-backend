@@ -12,7 +12,22 @@ import bcrypt from "bcryptjs";
 
 import TokenTransaction from "../models/TokenTransaction.model.js";
 
+import jwt from "jsonwebtoken";
 
+export const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await User.findOne({ role: { $in: ["superadmin", "admin"] } })
+      .sort({ role: -1 }) // Sort to get superadmin if both exist
+      .select("name username profilePicture role");
+    if (!admin) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+    return res.json({ success: true, admin });
+  } catch (error) {
+    logger.error("Failed to fetch admin profile: ", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
 /**
  * @desc    Get user profile
  * @route   GET /api/v1/user/profile

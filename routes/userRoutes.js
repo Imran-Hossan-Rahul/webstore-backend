@@ -13,6 +13,7 @@ import {
   requestEmailChange,
   verifyEmailChange,
   checkUsernameAvailability,
+  getAdminProfile,
   // ─── New Settings Controllers ───
   changePassword,
   setup2FA,
@@ -46,6 +47,9 @@ router.get("/leaderboard", getLeaderboard);
 
 // Get Current User (Identity Audit)
 router.get("/me", protect, getMe);
+
+// Admin Public Profile (Used for chat button)
+router.get("/admin-profile", getAdminProfile);
 
 // Email Change Flow
 router.post("/request-email-change", protect, requestEmailChange);

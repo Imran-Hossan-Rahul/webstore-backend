@@ -14,6 +14,7 @@ import logger from "../utils/logger.js";
 import { NODE_ENV, CLIENT_URL, JWT_ACCESS_SECRET } from "../config/index.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../services/email.service.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { OTP } from "otplib";
 const authenticator = new OTP();
 
@@ -642,3 +643,49 @@ export const resetPassword = async (req, res) => {
 };
 
 
+export const guestLogin = async (req, res) => {
+  try {
+    const uuid = crypto.randomUUID ? crypto.randomUUID().split("-")[0] : crypto.randomBytes(4).toString("hex");
+    const guestUsername = `guest_${uuid}`;
+    const guestEmail = `${guestUsername}@codalina.guest`;
+    const randomPassword = crypto.randomBytes(16).toString("hex") + "Aa1@";
+
+    const newUser = new User({
+      name: "Guest User",
+      username: guestUsername,
+      email: guestEmail,
+      password: randomPassword, // Will be hashed in pre-save hook
+      role: "guest",
+      emailVerified: true, // Auto verify since it's fake
+      hasCompletedOnboarding: true,
+      isActive: true
+    });
+
+    await newUser.save();
+
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"] || "unknown";
+
+    // Create session tokens
+    const accessToken = await generateAccessToken(newUser);
+    const { token: refreshToken, refreshTokenDoc } = await generateRefreshToken(newUser, userAgent, ip);
+
+    setTokenCookies(res, accessToken, refreshTokenDoc, refreshToken);
+
+    return res.status(201).json({
+      success: true,
+      message: "Guest session started successfully",
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        profilePicture: newUser.profilePicture,
+      },
+    });
+  } catch (error) {
+    logger.error("Guest login error: ", error);
+    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
