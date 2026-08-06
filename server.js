@@ -314,7 +314,14 @@ const csrfProtection = (req, res, next) => {
 
   // 2. Validate for state-changing methods
   const stateChangingMethods = ["POST", "PUT", "DELETE", "PATCH"];
-  const isExempted = req.path.startsWith("/api/v1/track") || req.path.startsWith("/api/v1/analytics") || req.path.startsWith("/api/v1/auth/guest-login") || req.path.startsWith("/api/v1/market/delivery/calculate");
+  const isExempted = 
+    req.path.startsWith("/api/v1/track") || 
+    req.path.startsWith("/api/v1/analytics") || 
+    req.path.startsWith("/api/v1/auth/guest-login") || 
+    req.path.startsWith("/api/v1/market/delivery/calculate") ||
+    req.path.startsWith("/api/v1/auth/login") ||
+    req.path.startsWith("/api/v1/auth/register") ||
+    req.path.startsWith("/api/v1/auth/logout");
   
   if (stateChangingMethods.includes(req.method) && !isExempted) {
     const headerToken = req.headers["x-xsrf-token"];

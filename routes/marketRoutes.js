@@ -53,6 +53,8 @@ router.put('/products/:id/like', protect, productController.likeProduct);
 router.get('/orders/all', protect, adminOnly, orderController.getAllOrders);
 router.get('/orders', protect, orderController.getOrders);
 router.post('/orders', protect, orderController.createOrder);
+router.post('/orders/guest', orderController.createGuestOrder);
+router.post('/orders/guest/list', orderController.getGuestOrders);
 router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrderStatus);
 
 // Procurement

@@ -110,6 +110,80 @@ export const createOrder = async (req, res) => {
   }
 };
 
+export const createGuestOrder = async (req, res) => {
+  try {
+    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount } = req.body;
+    
+    // Create the main order without user_id
+    const order = await MarketOrder.create({
+      user_id: null,
+      phone,
+      address, 
+      status: 'Order placed',
+      source_channel,
+      delivery_charge: delivery_charge || 0,
+      discount_amount: discount_amount || 0,
+      subtotal: subtotal || 0,
+      total_amount: total_amount || 0
+    });
+    
+    // Create the items referencing the order
+    const orderItemsToCreate = items.map(item => ({
+      order_id: order._id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price_at_purchase: item.price,
+      variants: item.variants
+    }));
+    
+    const createdItems = await MarketOrderItem.insertMany(orderItemsToCreate);
+    
+    const result = order.toObject();
+    result.id = result._id;
+    result.items = createdItems.map(item => {
+      const obj = item.toObject();
+      obj.id = obj._id;
+      return obj;
+    });
+    
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getGuestOrders = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.json([]);
+    }
+
+    const orders = await MarketOrder.find({ _id: { $in: ids } }).sort({ createdAt: -1 }).lean();
+    const foundOrderIds = orders.map(o => o._id);
+    const allItems = await MarketOrderItem.find({ order_id: { $in: foundOrderIds } }).populate('product_id').lean();
+    
+    const mappedOrders = orders.map(order => {
+      const orderItems = allItems.filter(item => item.order_id.toString() === order._id.toString());
+      return {
+        ...order,
+        id: order._id,
+        items: orderItems.map(item => {
+          const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
+          if (product && Array.isArray(product.photos)) {
+            product.photos = JSON.stringify(product.photos);
+          }
+          return { ...item, id: item._id, product };
+        })
+      };
+    });
+    
+    res.json(mappedOrders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status, courier_name, tracking_id } = req.body;
