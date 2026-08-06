@@ -567,9 +567,13 @@ export const resendVerificationEmail = async (req, res) => {
     if (user.emailVerified) return res.status(400).json({ success: false, message: "Email is already verified" });
 
     const token = await user.generateEmailVerification();
-    await sendVerificationEmail(user.email, user.name, token);
+    
+    // Fire-and-forget so it doesn't block the response
+    sendVerificationEmail(user.email, user.name, token).catch(err => {
+      logger.error("Resend verification email failed:", err);
+    });
 
-    return res.status(200).json({ success: true, message: "A new verification link has been dispatched to your endpoint." });
+    return res.status(200).json({ success: true, message: "Verification email sent! Please check your inbox." });
   } catch (err) {
     console.error("Resend Verification Error: ", err);
     return res.status(500).json({ success: false, message: "Internal server error" });
