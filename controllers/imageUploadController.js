@@ -215,6 +215,8 @@ export const getUploadStatus = async (req, res) => {
  */
 export const uploadImage = async (req, res) => {
   try {
+    console.log("uploadImage called!");
+    console.log("req.file:", req.file);
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
@@ -227,8 +229,8 @@ export const uploadImage = async (req, res) => {
       url: `/${req.file.path.replace(/\\/g, "/")}`
     });
   } catch (error) {
-    console.error("Generic image upload error:", error);
-    res.status(500).json({ success: false, message: "Failed to upload image" });
+    console.error("Generic image upload error details:", error, error.stack);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
 

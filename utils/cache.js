@@ -20,7 +20,13 @@ export const cacheMiddleware = (duration) => {
       const originalJson = res.json;
       res.json = function(body) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          appCache.set(key, body, duration);
+          try {
+            // Fix: convert Mongoose documents to plain objects before caching
+            const safeBody = JSON.parse(JSON.stringify(body));
+            appCache.set(key, safeBody, duration);
+          } catch (e) {
+            console.error("Cache stringify error:", e);
+          }
         }
         return originalJson.call(res, body);
       };

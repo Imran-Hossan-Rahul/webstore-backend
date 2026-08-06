@@ -115,7 +115,7 @@ export const getUserChats = async (req, res) => {
     const currentUser = await User.findById(rawUserId);
 
     let query = { participants: rawUserId };
-    if (currentUser && currentUser.role === 'admin') {
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin')) {
       query = { $or: [{ participants: rawUserId }, { isSupportChat: true }] };
     }
 
@@ -176,7 +176,7 @@ export const getChatMessages = async (req, res) => {
     // Check if user is participant
     const userId = req.user._id || req.user.id;
     const currentUser = await User.findById(userId);
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
     
     const isParticipant = chat.participants.some(p => p._id.toString() === userId.toString());
     if (!isParticipant && !(isAdmin && chat.isSupportChat)) {
@@ -237,7 +237,7 @@ export const sendMessage = async (req, res) => {
     // Check if user is participant
     const userIdStr = userId.toString();
     const currentUser = await User.findById(userId);
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
     
     const isParticipant = chat.participants.some(p => p.toString() === userIdStr);
     
@@ -393,7 +393,7 @@ export const uploadMedia = async (req, res) => {
     if (!chat) return res.status(404).json({ success: false, message: "Chat not found" });
 
     const currentUser = await User.findById(userId);
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
     const isParticipant = chat.participants.some(p => p.toString() === userId.toString());
     if (!isParticipant && !(isAdmin && chat.isSupportChat)) return res.status(403).json({ success: false, message: "Unauthorized" });
 
@@ -478,7 +478,7 @@ export const getUnreadChatsCount = async (req, res) => {
     
     const currentUser = await User.findById(userId);
     let matchQuery = { participants: userId };
-    if (currentUser && currentUser.role === 'admin') {
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin')) {
       matchQuery = { $or: [{ participants: userId }, { isSupportChat: true }] };
     }
 

@@ -292,6 +292,7 @@ app.use(
   helmet({
     contentSecurityPolicy: { useDefaults: true },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 

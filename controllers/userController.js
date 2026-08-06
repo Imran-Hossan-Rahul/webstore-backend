@@ -184,18 +184,18 @@ export const updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    user.name = req.body.name || user.name;
-    user.bio = req.body.bio || user.bio;
-    user.profilePicture = req.body.profilePicture || user.profilePicture;
-    user.skills = req.body.skills || user.skills;
-    user.interests = req.body.interests || user.interests;
-    user.workType = req.body.workType || user.workType;
+    if (req.body.name !== undefined) user.name = req.body.name;
+    if (req.body.bio !== undefined) user.bio = req.body.bio;
+    if (req.body.profilePicture !== undefined) user.profilePicture = req.body.profilePicture;
+    if (req.body.skills !== undefined) user.skills = req.body.skills;
+    if (req.body.interests !== undefined) user.interests = req.body.interests;
+    if (req.body.workType !== undefined) user.workType = req.body.workType;
     if (req.body.gender !== undefined) user.gender = req.body.gender;
-    user.location = req.body.location || user.location;
-    user.addresses = req.body.addresses || user.addresses;
-    user.professionalLinks = req.body.professionalLinks || user.professionalLinks;
-    user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
-    
+    if (req.body.location !== undefined) user.location = req.body.location;
+    if (req.body.addresses !== undefined) user.addresses = req.body.addresses;
+    if (req.body.professionalLinks !== undefined) user.professionalLinks = req.body.professionalLinks;
+    if (req.body.dateOfBirth !== undefined) user.dateOfBirth = req.body.dateOfBirth;
+
     if (req.body.username && req.body.username !== user.username) {
       const usernameExists = await User.findOne({ username: req.body.username.toLowerCase() });
       if (usernameExists) return res.status(400).json({ success: false, message: "Username is already taken" });
@@ -217,7 +217,7 @@ export const updateUserProfile = async (req, res) => {
     res.json({ success: true, data: updatedUser });
   } catch (error) {
      console.error("Update Profile Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
