@@ -23,6 +23,7 @@ import walletRoutes from "./routes/walletRoutes.js";
 import tokenRoutes from "./routes/tokenRoutes.js";
 import oauthRoutes from "./routes/oauthRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
+import trackRoutes from "./routes/trackRoutes.js";
 
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
 
@@ -443,6 +444,7 @@ app.use("/api/v1/verification", verificationRoutes);
 app.use("/api/v1/wallet", walletRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
 app.use("/api/v1/market", marketRoutes);
+app.use("/api/v1/track", trackRoutes);
 
 
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
