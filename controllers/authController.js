@@ -97,11 +97,11 @@ export const registerUser = async (req, res) => {
 
     // --- Email Verification Step ---
     const verificationToken = await user.generateEmailVerification();
-    try {
-      await sendVerificationEmail(user.email, user.name, verificationToken, "link_only");
-    } catch (emailErr) {
+    
+    // Send email asynchronously in the background so it doesn't block signup
+    sendVerificationEmail(user.email, user.name, verificationToken, "link_only").catch(emailErr => {
       logger.error("Initial verification email failed: ", emailErr);
-    }
+    });
 
     return res.status(201).json({
       success: true,
