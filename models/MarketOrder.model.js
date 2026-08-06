@@ -23,6 +23,22 @@ const marketOrderSchema = new mongoose.Schema({
   tracking_id: {
     type: String,
   },
+  delivery_charge: {
+    type: Number,
+    default: 0
+  },
+  discount_amount: {
+    type: Number,
+    default: 0
+  },
+  subtotal: {
+    type: Number,
+    default: 0
+  },
+  total_amount: {
+    type: Number,
+    default: 0
+  },
   source_channel: {
     type: String,
   },

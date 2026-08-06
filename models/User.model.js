@@ -44,7 +44,6 @@ const userSchema = new Schema(
 
     skills: { type: [String], default: [] },
     interests: { type: [String], default: [] }, // NEW FIELD
-    workType: { type: String, enum: ["solo", "team"], default: "solo" },
     gender: { type: String, default: "" },
 
     loginAttempts: { type: Number, default: 0 },

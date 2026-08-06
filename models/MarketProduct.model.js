@@ -98,6 +98,10 @@ const marketProductSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isLatest: {
+    type: Boolean,
+    default: false,
+  },
   groupId: {
     type: String,
   },

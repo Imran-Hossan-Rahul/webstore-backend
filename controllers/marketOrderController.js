@@ -69,7 +69,7 @@ export const getOrders = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { phone, address, items, source_channel } = req.body;
+    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount } = req.body;
     const userId = req.user._id.toString();
     
     // Create the main order
@@ -78,7 +78,11 @@ export const createOrder = async (req, res) => {
       phone,
       address, // Save as object directly (requires model update to match)
       status: 'Order placed',
-      source_channel
+      source_channel,
+      delivery_charge: delivery_charge || 0,
+      discount_amount: discount_amount || 0,
+      subtotal: subtotal || 0,
+      total_amount: total_amount || 0
     });
     
     // Create the items referencing the order

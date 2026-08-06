@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import User from "../models/User.model.js";
+import cloudinary from "../services/cloudinary.js";
 
 import { profileImageQueue } from "../queues/index.js";
 
@@ -215,18 +216,34 @@ export const getUploadStatus = async (req, res) => {
  */
 export const uploadImage = async (req, res) => {
   try {
-    console.log("uploadImage called!");
-    console.log("req.file:", req.file);
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
-    // Return the path so frontend can use it
-    // In a real app, this might be a Cloudinary/S3 URL
+    const uploadOptions = {
+      folder: "codalina/general",
+      resource_type: "image",
+      format: "webp"
+    };
+
+    let secure_url;
+    try {
+      const uploaded = await cloudinary.uploader.upload(req.file.path, uploadOptions);
+      secure_url = uploaded.secure_url;
+    } catch (uploadErr) {
+      console.error("Cloudinary upload error:", uploadErr);
+      return res.status(500).json({ success: false, message: "Failed to upload to Cloudinary" });
+    }
+
+    // Clean up temp file asynchronously
+    fs.unlink(req.file.path).catch(err => {
+      if (err.code !== 'ENOENT') console.error("Temp file cleanup error:", err);
+    });
+
     res.status(200).json({
       success: true,
       message: "Image uploaded successfully",
-      url: `/${req.file.path.replace(/\\/g, "/")}`
+      url: secure_url
     });
   } catch (error) {
     console.error("Generic image upload error details:", error, error.stack);

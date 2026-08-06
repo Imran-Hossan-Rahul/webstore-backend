@@ -29,6 +29,8 @@ export const getProducts = async (req, res) => {
         if (req.query.childCategory_id) query.childCategory_id = req.query.childCategory_id;
         if (req.query.isFeatured) query.isFeatured = req.query.isFeatured === 'true';
         if (req.query.isPopular) query.isPopular = req.query.isPopular === 'true';
+        if (req.query.isLatest) query.isLatest = req.query.isLatest === 'true';
+        if (req.query.status) query.status = req.query.status;
         
         if (req.query.minPrice !== undefined || req.query.maxPrice !== undefined) {
             query.selling_price = {};

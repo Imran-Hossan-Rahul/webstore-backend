@@ -132,7 +132,7 @@ io.on("connection", (socket) => {
     }
 
     io.emit("user:status", { userId, status: "online" });
-    logger.info(`[SOCKET] User ${userId} is online. Active sockets: ${onlineUsers.get(userId).size}`);
+    logger.info(`[SOCKET] User ${userId} is online. Active sockets: ${onlineUsers.get(userId)?.size || 0}`);
 
     // Send back the full list of currently online users to the newly connected socket
     const currentlyOnline = Array.from(onlineUsers.keys());
