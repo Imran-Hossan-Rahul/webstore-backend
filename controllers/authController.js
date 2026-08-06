@@ -398,8 +398,16 @@ export const logoutHandler = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
     if (token) await revokeRefreshToken(token);
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken", { path: "/api/v1/auth/refresh-token" });
+    const isProd = process.env.NODE_ENV === "production";
+    res.clearCookie("accessToken", {
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+    });
+    res.clearCookie("refreshToken", { 
+      path: "/api/v1/auth/refresh-token",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+    });
     return res.status(200).json({ success: true, message: "Logged out" });
   } catch (err) {
     logger.error("Logout Error: ", err.stack || err);
