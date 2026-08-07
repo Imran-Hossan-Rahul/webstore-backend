@@ -49,7 +49,8 @@ const marketProductSchema = new mongoose.Schema({
   },
   specifications: [{
     key: String,
-    value: String
+    value: String,
+    isHighlight: { type: Boolean, default: false }
   }],
   variantGroups: [{
     name: String,

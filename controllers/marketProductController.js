@@ -1,4 +1,5 @@
 import MarketProduct from '../models/MarketProduct.model.js';
+import MarketCategory from '../models/MarketCategory.model.js';
 import { clearCache } from '../utils/cache.js';
 import cloudinary from '../services/cloudinary.js';
 import fs from 'fs';
@@ -96,7 +97,22 @@ export const getProductById = async (req, res) => {
       isLiked = favoriteSet.has(req.user._id.toString());
     }
     
-    res.json({ ...product, isLiked });
+    // Calculate weight based on category
+    let weightInGrams = 0;
+    try {
+      let category = null;
+      if (product.childCategory_id) category = await MarketCategory.findById(product.childCategory_id).lean();
+      if (!category && product.subCategory_id) category = await MarketCategory.findById(product.subCategory_id).lean();
+      if (!category && product.category_id) category = await MarketCategory.findById(product.category_id).lean();
+
+      if (category && category.maxWeightPerPiece) {
+        weightInGrams = category.maxWeightPerPiece;
+      }
+    } catch (err) {
+      console.error("Error fetching category for weight:", err);
+    }
+    
+    res.json({ ...product, isLiked, weightInGrams });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
