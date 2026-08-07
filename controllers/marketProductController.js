@@ -9,7 +9,7 @@ import logger from '../utils/logger.js';
 export const getProducts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 1000);
     const skip = (page - 1) * limit;
     
     let query = {};
