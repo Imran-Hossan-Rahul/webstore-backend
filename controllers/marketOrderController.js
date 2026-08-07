@@ -184,6 +184,52 @@ export const getGuestOrders = async (req, res) => {
   }
 };
 
+export const trackGuestOrder = async (req, res) => {
+  try {
+    const { orderId, phone } = req.body;
+    if (!orderId || !phone) {
+      return res.status(400).json({ error: 'Order ID and Phone Number are required.' });
+    }
+
+    const order = await MarketOrder.findOne({ _id: orderId }).lean();
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found. Please check your Order ID.' });
+    }
+
+    // Verify phone number (simple string match, could strip spaces/country codes if needed)
+    const dbPhone = order.phone || '';
+    const inputPhone = phone || '';
+    
+    // Normalize phones for comparison (remove spaces, dashes, +88)
+    const normalizePhone = (p) => p.replace(/[\s\-\+]/g, '').slice(-10);
+    
+    if (normalizePhone(dbPhone) !== normalizePhone(inputPhone)) {
+      return res.status(403).json({ error: 'Phone number does not match the order records.' });
+    }
+
+    const items = await MarketOrderItem.find({ order_id: order._id }).populate('product_id').lean();
+    
+    const mappedOrder = {
+      ...order,
+      id: order._id,
+      items: items.map(item => {
+        const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
+        if (product && Array.isArray(product.photos)) {
+          product.photos = JSON.stringify(product.photos);
+        }
+        return { ...item, id: item._id, product };
+      })
+    };
+    
+    res.json(mappedOrder);
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(404).json({ error: 'Invalid Order ID format.' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status, courier_name, tracking_id } = req.body;

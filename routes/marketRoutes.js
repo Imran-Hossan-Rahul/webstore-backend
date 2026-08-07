@@ -55,6 +55,7 @@ router.get('/orders', protect, orderController.getOrders);
 router.post('/orders', protect, orderController.createOrder);
 router.post('/orders/guest', orderController.createGuestOrder);
 router.post('/orders/guest/list', orderController.getGuestOrders);
+router.post('/orders/guest/track', orderController.trackGuestOrder);
 router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrderStatus);
 
 // Procurement
