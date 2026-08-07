@@ -186,46 +186,58 @@ export const getGuestOrders = async (req, res) => {
 
 export const trackGuestOrder = async (req, res) => {
   try {
-    const { orderId, phone } = req.body;
-    if (!orderId || !phone) {
-      return res.status(400).json({ error: 'Order ID and Phone Number are required.' });
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Order ID or Phone Number is required.' });
     }
 
-    const order = await MarketOrder.findOne({ _id: orderId }).lean();
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found. Please check your Order ID.' });
+    const searchQuery = query.trim();
+    // Normalize phone for searching if it looks like a phone (contains digits)
+    const normalizedPhone = searchQuery.replace(/[\s\-\+]/g, '').slice(-10);
+    
+    let orders = [];
+
+    // Check if query is a valid MongoDB ObjectId
+    const mongoose = await import('mongoose');
+    if (mongoose.isValidObjectId(searchQuery)) {
+      const orderById = await MarketOrder.findOne({ _id: searchQuery }).lean();
+      if (orderById) orders.push(orderById);
+    }
+    
+    // If no order found by ID, search by phone
+    if (orders.length === 0) {
+      // Find orders where the phone number ends with the normalized phone
+      const ordersByPhone = await MarketOrder.find({
+        phone: { $regex: new RegExp(normalizedPhone + '$') }
+      }).sort({ createdAt: -1 }).lean();
+      
+      orders = ordersByPhone;
     }
 
-    // Verify phone number (simple string match, could strip spaces/country codes if needed)
-    const dbPhone = order.phone || '';
-    const inputPhone = phone || '';
-    
-    // Normalize phones for comparison (remove spaces, dashes, +88)
-    const normalizePhone = (p) => p.replace(/[\s\-\+]/g, '').slice(-10);
-    
-    if (normalizePhone(dbPhone) !== normalizePhone(inputPhone)) {
-      return res.status(403).json({ error: 'Phone number does not match the order records.' });
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'No orders found matching this ID or Phone Number.' });
     }
 
-    const items = await MarketOrderItem.find({ order_id: order._id }).populate('product_id').lean();
+    const foundOrderIds = orders.map(o => o._id);
+    const allItems = await MarketOrderItem.find({ order_id: { $in: foundOrderIds } }).populate('product_id').lean();
+
+    const mappedOrders = orders.map(order => {
+      const orderItems = allItems.filter(item => item.order_id.toString() === order._id.toString());
+      return {
+        ...order,
+        id: order._id,
+        items: orderItems.map(item => {
+          const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
+          if (product && Array.isArray(product.photos)) {
+            product.photos = JSON.stringify(product.photos);
+          }
+          return { ...item, id: item._id, product };
+        })
+      };
+    });
     
-    const mappedOrder = {
-      ...order,
-      id: order._id,
-      items: items.map(item => {
-        const product = item.product_id ? { ...item.product_id, id: item.product_id._id } : null;
-        if (product && Array.isArray(product.photos)) {
-          product.photos = JSON.stringify(product.photos);
-        }
-        return { ...item, id: item._id, product };
-      })
-    };
-    
-    res.json(mappedOrder);
+    res.json(mappedOrders);
   } catch (error) {
-    if (error.name === 'CastError') {
-      return res.status(404).json({ error: 'Invalid Order ID format.' });
-    }
     res.status(500).json({ error: error.message });
   }
 };
