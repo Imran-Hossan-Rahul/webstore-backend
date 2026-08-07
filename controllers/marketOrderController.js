@@ -203,15 +203,19 @@ export const trackGuestOrder = async (req, res) => {
     } else if (searchQuery.toUpperCase().startsWith('WA') && searchQuery.length === 10) {
       // It's a short ID like WAFA2AC00F
       const shortId = searchQuery.toUpperCase().slice(2);
-      // Use $expr to match the end of the _id string
-      const matchedOrders = await MarketOrder.find({
-        $expr: {
-          $eq: [
-            { $toUpper: { $substr: [ { $toString: "$_id" }, 16, 8 ] } },
-            shortId
-          ]
+      // Use aggregation pipeline to match the end of the _id string
+      const matchedOrders = await MarketOrder.aggregate([
+        {
+          $addFields: {
+            extractedShortId: { $toUpper: { $substr: [ { $toString: "$_id" }, 16, 8 ] } }
+          }
+        },
+        {
+          $match: {
+            extractedShortId: shortId
+          }
         }
-      }).lean();
+      ]);
       orders = matchedOrders;
     }
     
