@@ -200,6 +200,19 @@ export const trackGuestOrder = async (req, res) => {
     if (mongoose.isValidObjectId(searchQuery)) {
       const orderById = await MarketOrder.findOne({ _id: searchQuery }).lean();
       if (orderById) orders.push(orderById);
+    } else if (searchQuery.toUpperCase().startsWith('WA') && searchQuery.length === 10) {
+      // It's a short ID like WAFA2AC00F
+      const shortId = searchQuery.toUpperCase().slice(2);
+      // Use $expr to match the end of the _id string
+      const matchedOrders = await MarketOrder.find({
+        $expr: {
+          $eq: [
+            { $toUpper: { $substr: [ { $toString: "$_id" }, 16, 8 ] } },
+            shortId
+          ]
+        }
+      }).lean();
+      orders = matchedOrders;
     }
     
     // If no order found by ID, search by phone (Exact match required)
