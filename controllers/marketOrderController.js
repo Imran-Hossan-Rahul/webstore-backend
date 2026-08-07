@@ -192,8 +192,6 @@ export const trackGuestOrder = async (req, res) => {
     }
 
     const searchQuery = query.trim();
-    // Normalize phone for searching if it looks like a phone (contains digits)
-    const normalizedPhone = searchQuery.replace(/[\s\-\+]/g, '').slice(-10);
     
     let orders = [];
 
@@ -204,13 +202,9 @@ export const trackGuestOrder = async (req, res) => {
       if (orderById) orders.push(orderById);
     }
     
-    // If no order found by ID, search by phone
+    // If no order found by ID, search by phone (Exact match required)
     if (orders.length === 0) {
-      // Find orders where the phone number ends with the normalized phone
-      const ordersByPhone = await MarketOrder.find({
-        phone: { $regex: new RegExp(normalizedPhone + '$') }
-      }).sort({ createdAt: -1 }).lean();
-      
+      const ordersByPhone = await MarketOrder.find({ phone: searchQuery }).sort({ createdAt: -1 }).lean();
       orders = ordersByPhone;
     }
 
