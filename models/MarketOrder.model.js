@@ -47,6 +47,25 @@ const marketOrderSchema = new mongoose.Schema({
   source_channel: {
     type: String,
   },
+  payment_method: {
+    type: String,
+    default: 'Cash on Delivery'
+  },
+  payment_number: {
+    type: String,
+  },
+  payment_trx_id: {
+    type: String,
+  },
+  payment_status: {
+    type: String,
+    enum: ['Pending', 'Verified', 'Failed'],
+    default: 'Pending'
+  },
+  payment_due: {
+    type: Number,
+    default: 0
+  },
   confirmed_at: {
     type: Date,
   }

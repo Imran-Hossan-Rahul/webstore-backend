@@ -73,7 +73,7 @@ export const getOrders = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount } = req.body;
+    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount, payment_method, payment_number, payment_trx_id } = req.body;
     const userId = req.user._id.toString();
     
     // Create the main order
@@ -81,12 +81,15 @@ export const createOrder = async (req, res) => {
       user_id: userId,
       phone,
       address, // Save as object directly (requires model update to match)
-      status: 'Order placed',
+      status: payment_method === 'bkash_manual' ? 'Pending Verification' : 'Order placed',
       source_channel,
       delivery_charge: delivery_charge || 0,
       discount_amount: discount_amount || 0,
       subtotal: subtotal || 0,
-      total_amount: total_amount || 0
+      total_amount: total_amount || 0,
+      payment_method: payment_method || 'Cash on Delivery',
+      payment_number,
+      payment_trx_id
     });
     
     // Create the items referencing the order
@@ -117,28 +120,30 @@ export const createOrder = async (req, res) => {
     });
     
     // Digital Fulfillment: Send Email
-    try {
-      const productIds = createdItems.map(item => item.product_id);
-      const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
-      
-      const emailItems = createdItems.map(item => {
-        const prod = products.find(p => p._id.toString() === item.product_id.toString());
-        return {
-          productName: prod ? prod.title : 'Digital Product',
-          licenseKey: item.license_key,
-          downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
-        };
-      });
+    if (order.payment_method !== 'bkash_manual') {
+      try {
+        const productIds = createdItems.map(item => item.product_id);
+        const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
+        
+        const emailItems = createdItems.map(item => {
+          const prod = products.find(p => p._id.toString() === item.product_id.toString());
+          return {
+            productName: prod ? prod.title : 'Digital Product',
+            licenseKey: item.license_key,
+            downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
+          };
+        });
 
-      // Assuming user email is available in req.user, otherwise check if they passed it
-      const email = req.user?.email || req.body.email; 
-      const name = req.user?.name || req.body.customer_name || 'Customer';
-      
-      if (email) {
-        await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+        // Assuming user email is available in req.user, otherwise check if they passed it
+        const email = req.user?.email || req.body.email; 
+        const name = req.user?.name || req.body.customer_name || 'Customer';
+        
+        if (email) {
+          await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+        }
+      } catch (err) {
+        console.error('Fulfillment email failed:', err);
       }
-    } catch (err) {
-      console.error('Fulfillment email failed:', err);
     }
     
     res.status(201).json(result);
@@ -149,19 +154,22 @@ export const createOrder = async (req, res) => {
 
 export const createGuestOrder = async (req, res) => {
   try {
-    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount } = req.body;
+    const { phone, address, items, source_channel, delivery_charge, discount_amount, subtotal, total_amount, payment_method, payment_number, payment_trx_id } = req.body;
     
     // Create the main order without user_id
     const order = await MarketOrder.create({
       user_id: null,
       phone,
       address, 
-      status: 'Order placed',
+      status: payment_method === 'bkash_manual' ? 'Pending Verification' : 'Order placed',
       source_channel,
       delivery_charge: delivery_charge || 0,
       discount_amount: discount_amount || 0,
       subtotal: subtotal || 0,
-      total_amount: total_amount || 0
+      total_amount: total_amount || 0,
+      payment_method: payment_method || 'Cash on Delivery',
+      payment_number,
+      payment_trx_id
     });
     
     // Create the items referencing the order
@@ -192,27 +200,29 @@ export const createGuestOrder = async (req, res) => {
     });
     
     // Digital Fulfillment: Send Email
-    try {
-      const productIds = createdItems.map(item => item.product_id);
-      const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
-      
-      const emailItems = createdItems.map(item => {
-        const prod = products.find(p => p._id.toString() === item.product_id.toString());
-        return {
-          productName: prod ? prod.title : 'Digital Product',
-          licenseKey: item.license_key,
-          downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
-        };
-      });
+    if (order.payment_method !== 'bkash_manual') {
+      try {
+        const productIds = createdItems.map(item => item.product_id);
+        const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
+        
+        const emailItems = createdItems.map(item => {
+          const prod = products.find(p => p._id.toString() === item.product_id.toString());
+          return {
+            productName: prod ? prod.title : 'Digital Product',
+            licenseKey: item.license_key,
+            downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
+          };
+        });
 
-      const email = req.body.email; 
-      const name = req.body.customer_name || 'Customer';
-      
-      if (email) {
-        await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+        const email = req.body.email; 
+        const name = req.body.customer_name || 'Customer';
+        
+        if (email) {
+          await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+        }
+      } catch (err) {
+        console.error('Guest fulfillment email failed:', err);
       }
-    } catch (err) {
-      console.error('Guest fulfillment email failed:', err);
     }
     
     res.status(201).json(result);
@@ -326,12 +336,59 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { status, courier_name, tracking_id } = req.body;
     const updateData = { status };
-    if (status === 'Confirmed') updateData.confirmed_at = new Date();
+    if (status === 'Confirmed') {
+      updateData.confirmed_at = new Date();
+      updateData.payment_status = 'Verified';
+    }
     if (courier_name) updateData.courier_name = courier_name;
     if (tracking_id) updateData.tracking_id = tracking_id;
     
+    // Fetch current order to check if we are transitioning to Confirmed
+    const currentOrder = await MarketOrder.findById(req.params.id);
+    if (!currentOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
     const order = await MarketOrder.findByIdAndUpdate(req.params.id, updateData, { new: true }).lean();
     if(order) order.id = order._id;
+
+    // Trigger Digital Fulfillment Email if transitioning to Confirmed for a manual bkash order
+    if (status === 'Confirmed' && currentOrder.status !== 'Confirmed') {
+      try {
+        const items = await MarketOrderItem.find({ order_id: req.params.id }).lean();
+        const productIds = items.map(item => item.product_id);
+        const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
+        
+        const emailItems = items.map(item => {
+          const prod = products.find(p => p._id.toString() === item.product_id.toString());
+          return {
+            productName: prod ? prod.title : 'Digital Product',
+            licenseKey: item.license_key,
+            downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}`
+          };
+        });
+
+        // Use the order's stored user email if present (assumes MarketOrder has user_id populated or email stored directly)
+        // Let's check if the order has an email or we can fetch the user's email
+        const User = (await import('../models/User.model.js')).default;
+        let customerEmail = order.email;
+        let customerName = order.customer_name || 'Customer';
+        
+        if (!customerEmail && order.user_id) {
+          const userObj = await User.findById(order.user_id).lean();
+          if (userObj) {
+            customerEmail = userObj.email;
+            customerName = userObj.name || customerName;
+          }
+        }
+
+        if (customerEmail) {
+          await sendDigitalFulfillmentEmail(customerEmail, customerName, order.id.toString().slice(-6).toUpperCase(), emailItems);
+        }
+      } catch (err) {
+        console.error('Manual confirmation fulfillment email failed:', err);
+      }
+    }
     
     res.json(order);
   } catch (error) {
