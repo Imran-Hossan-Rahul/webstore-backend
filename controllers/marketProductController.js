@@ -59,6 +59,9 @@ export const getProducts = async (req, res) => {
       photos: Array.isArray(p.photos) ? JSON.stringify(p.photos) : p.photos,
       specifications: Array.isArray(p.specifications) ? JSON.stringify(p.specifications) : p.specifications,
       variantGroups: Array.isArray(p.variantGroups) ? JSON.stringify(p.variantGroups) : p.variantGroups,
+      techStack: Array.isArray(p.techStack) ? JSON.stringify(p.techStack) : p.techStack,
+      changelog: Array.isArray(p.changelog) ? JSON.stringify(p.changelog) : p.changelog,
+      screenshotGallery: Array.isArray(p.screenshotGallery) ? JSON.stringify(p.screenshotGallery) : p.screenshotGallery,
       wholesaler: p.wholesaler_id ? { ...p.wholesaler_id, id: p.wholesaler_id._id } : null
     }));
     
@@ -87,6 +90,10 @@ export const getProductById = async (req, res) => {
     product.photos = Array.isArray(product.photos) ? JSON.stringify(product.photos) : product.photos;
     product.specifications = Array.isArray(product.specifications) ? JSON.stringify(product.specifications) : product.specifications;
     product.variantGroups = Array.isArray(product.variantGroups) ? JSON.stringify(product.variantGroups) : product.variantGroups;
+    product.techStack = Array.isArray(product.techStack) ? JSON.stringify(product.techStack) : product.techStack;
+    product.changelog = Array.isArray(product.changelog) ? JSON.stringify(product.changelog) : product.changelog;
+    product.screenshotGallery = Array.isArray(product.screenshotGallery) ? JSON.stringify(product.screenshotGallery) : product.screenshotGallery;
+    
     if (product.wholesaler_id) {
       product.wholesaler = { ...product.wholesaler_id, id: product.wholesaler_id._id };
     }
@@ -97,22 +104,7 @@ export const getProductById = async (req, res) => {
       isLiked = favoriteSet.has(req.user._id.toString());
     }
     
-    // Calculate weight based on category
-    let weightInGrams = 0;
-    try {
-      let category = null;
-      if (product.childCategory_id) category = await MarketCategory.findById(product.childCategory_id).lean();
-      if (!category && product.subCategory_id) category = await MarketCategory.findById(product.subCategory_id).lean();
-      if (!category && product.category_id) category = await MarketCategory.findById(product.category_id).lean();
-
-      if (category && category.maxWeightPerPiece) {
-        weightInGrams = category.maxWeightPerPiece;
-      }
-    } catch (err) {
-      console.error("Error fetching category for weight:", err);
-    }
-    
-    res.json({ ...product, isLiked, weightInGrams });
+    res.json({ ...product, isLiked });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -163,6 +155,9 @@ export const createProduct = async (req, res) => {
     
     if (typeof data.specifications === 'string') data.specifications = JSON.parse(data.specifications);
     if (typeof data.variantGroups === 'string') data.variantGroups = JSON.parse(data.variantGroups);
+    if (typeof data.techStack === 'string') data.techStack = JSON.parse(data.techStack);
+    if (typeof data.changelog === 'string') data.changelog = JSON.parse(data.changelog);
+    if (typeof data.screenshotGallery === 'string') data.screenshotGallery = JSON.parse(data.screenshotGallery);
 
     const product = await MarketProduct.create(data);
     const result = product.toObject();
@@ -217,6 +212,9 @@ export const updateProduct = async (req, res) => {
     
     if (typeof data.specifications === 'string') data.specifications = JSON.parse(data.specifications);
     if (typeof data.variantGroups === 'string') data.variantGroups = JSON.parse(data.variantGroups);
+    if (typeof data.techStack === 'string') data.techStack = JSON.parse(data.techStack);
+    if (typeof data.changelog === 'string') data.changelog = JSON.parse(data.changelog);
+    if (typeof data.screenshotGallery === 'string') data.screenshotGallery = JSON.parse(data.screenshotGallery);
 
     const product = await MarketProduct.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!product) return res.status(404).json({ error: 'Not found' });
