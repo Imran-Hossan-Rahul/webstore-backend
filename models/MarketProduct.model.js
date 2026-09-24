@@ -27,12 +27,9 @@ const marketProductSchema = new mongoose.Schema({
   brand: {
     type: String,
   },
-  weight: {
-    type: Number,
-  },
-  dimensions: {
-    type: String,
-  },
+  // --- DEPRECATED PHYSICAL FIELDS ---
+  // weight: { type: Number },
+  // dimensions: { type: String },
   tags: {
     type: String,
   },
@@ -60,37 +57,59 @@ const marketProductSchema = new mongoose.Schema({
       imageIndex: Number
     }]
   }],
-  warranty_info: {
-    type: String,
-  },
-  return_policy: {
-    type: String,
-  },
-  wholesaler_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'MarketWholesaler',
-    required: true,
-    index: true,
-  },
+  // warranty_info: { type: String },
+  // return_policy: { type: String },
+  // wholesaler_id: { type: mongoose.Schema.Types.ObjectId, ref: 'MarketWholesaler', required: true, index: true },
   status: {
     type: String,
     enum: ['Draft', 'Live', 'Threshold reached', 'Paused', 'Sold out'],
     required: true,
     index: true,
   },
-  procurement_threshold: {
-    type: Number,
-    default: 20,
+  // procurement_threshold: { type: Number, default: 20 },
+  // est_delivery_days: { type: Number, default: 3 },
+  // reportedStockQuantity: { type: Number, required: true, default: 0 },
+  // --- END DEPRECATED FIELDS ---
+
+  // --- NEW DIGITAL PRODUCT FIELDS ---
+  productType: {
+    type: String,
+    enum: ['SaaS Tool', 'Web Template', 'Script/Automation', 'Source Code', 'UI Kit/Plugin']
   },
-  est_delivery_days: {
-    type: Number,
-    default: 3,
+  licenseType: {
+    type: String,
+    enum: ['Personal', 'Commercial', 'Extended']
   },
-  reportedStockQuantity: {
-    type: Number,
-    required: true,
-    default: 0,
+  demoUrl: {
+    type: String
   },
+  documentationUrl: {
+    type: String
+  },
+  techStack: [{
+    type: String
+  }],
+  fileFormat: {
+    type: String
+  },
+  fileSize: {
+    type: String
+  },
+  version: {
+    type: String
+  },
+  changelog: [{
+    version: String,
+    date: Date,
+    notes: String
+  }],
+  downloadUrl: {
+    type: String
+  },
+  screenshotGallery: [{
+    type: String
+  }],
+  // --- END DIGITAL PRODUCT FIELDS ---
   isFeatured: {
     type: Boolean,
     default: false,

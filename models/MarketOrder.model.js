@@ -7,9 +7,14 @@ const marketOrderSchema = new mongoose.Schema({
   phone: {
     type: String, // Essential for guest checkout
   },
+  email: {
+    type: String, // Essential for digital delivery
+  },
+  customer_name: {
+    type: String, // Essential for digital delivery
+  },
   address: {
-    type: Object, // division, district, upazila
-    required: true,
+    type: Object, // division, district, upazila (now optional)
   },
   status: {
     type: String,
