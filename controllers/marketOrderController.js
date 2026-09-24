@@ -1,5 +1,9 @@
 import MarketOrder from '../models/MarketOrder.model.js';
 import MarketOrderItem from '../models/MarketOrderItem.model.js';
+import MarketProduct from '../models/MarketProduct.model.js';
+import { sendDigitalFulfillmentEmail } from '../services/email.service.js';
+import crypto from 'crypto';
+import { CLIENT_URL } from '../config/index.js';
 
 // Admin: get ALL orders across all users
 export const getAllOrders = async (req, res) => {
@@ -86,12 +90,20 @@ export const createOrder = async (req, res) => {
     });
     
     // Create the items referencing the order
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
     const orderItemsToCreate = items.map(item => ({
       order_id: order._id,
       product_id: item.product_id,
       quantity: item.quantity,
       price_at_purchase: item.price,
-      variants: item.variants
+      variants: item.variants,
+      license_key: crypto.randomUUID().toUpperCase(),
+      download_token: crypto.randomBytes(16).toString('hex'),
+      download_expires_at: expiresAt,
+      download_attempts: 0,
+      max_downloads: 5
     }));
     
     const createdItems = await MarketOrderItem.insertMany(orderItemsToCreate);
@@ -103,6 +115,31 @@ export const createOrder = async (req, res) => {
       obj.id = obj._id;
       return obj;
     });
+    
+    // Digital Fulfillment: Send Email
+    try {
+      const productIds = createdItems.map(item => item.product_id);
+      const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
+      
+      const emailItems = createdItems.map(item => {
+        const prod = products.find(p => p._id.toString() === item.product_id.toString());
+        return {
+          productName: prod ? prod.title : 'Digital Product',
+          licenseKey: item.license_key,
+          downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
+        };
+      });
+
+      // Assuming user email is available in req.user, otherwise check if they passed it
+      const email = req.user?.email || req.body.email; 
+      const name = req.user?.name || req.body.customer_name || 'Customer';
+      
+      if (email) {
+        await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+      }
+    } catch (err) {
+      console.error('Fulfillment email failed:', err);
+    }
     
     res.status(201).json(result);
   } catch (error) {
@@ -128,12 +165,20 @@ export const createGuestOrder = async (req, res) => {
     });
     
     // Create the items referencing the order
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
     const orderItemsToCreate = items.map(item => ({
       order_id: order._id,
       product_id: item.product_id,
       quantity: item.quantity,
       price_at_purchase: item.price,
-      variants: item.variants
+      variants: item.variants,
+      license_key: crypto.randomUUID().toUpperCase(),
+      download_token: crypto.randomBytes(16).toString('hex'),
+      download_expires_at: expiresAt,
+      download_attempts: 0,
+      max_downloads: 5
     }));
     
     const createdItems = await MarketOrderItem.insertMany(orderItemsToCreate);
@@ -145,6 +190,30 @@ export const createGuestOrder = async (req, res) => {
       obj.id = obj._id;
       return obj;
     });
+    
+    // Digital Fulfillment: Send Email
+    try {
+      const productIds = createdItems.map(item => item.product_id);
+      const products = await MarketProduct.find({ _id: { $in: productIds } }).lean();
+      
+      const emailItems = createdItems.map(item => {
+        const prod = products.find(p => p._id.toString() === item.product_id.toString());
+        return {
+          productName: prod ? prod.title : 'Digital Product',
+          licenseKey: item.license_key,
+          downloadUrl: `${CLIENT_URL}/api/market/download/${item.download_token}` // Proxy endpoint
+        };
+      });
+
+      const email = req.body.email; 
+      const name = req.body.customer_name || 'Customer';
+      
+      if (email) {
+        await sendDigitalFulfillmentEmail(email, name, result.id.toString().slice(-6).toUpperCase(), emailItems);
+      }
+    } catch (err) {
+      console.error('Guest fulfillment email failed:', err);
+    }
     
     res.status(201).json(result);
   } catch (error) {
@@ -267,5 +336,41 @@ export const updateOrderStatus = async (req, res) => {
     res.json(order);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const downloadDigitalProduct = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ error: 'Token is required' });
+
+    const orderItem = await MarketOrderItem.findOne({ download_token: token }).populate('product_id');
+    if (!orderItem) {
+      return res.status(404).json({ error: 'Invalid or expired download token' });
+    }
+
+    if (!orderItem.product_id || !orderItem.product_id.downloadUrl) {
+      return res.status(404).json({ error: 'Digital product file not found' });
+    }
+
+    // Check expiry
+    if (new Date() > new Date(orderItem.download_expires_at)) {
+      return res.status(403).json({ error: 'Download link has expired. Please request a new one from your orders page.' });
+    }
+
+    // Check attempts
+    if (orderItem.download_attempts >= orderItem.max_downloads) {
+      return res.status(403).json({ error: 'Maximum download attempts reached.' });
+    }
+
+    // Increment attempts
+    orderItem.download_attempts += 1;
+    await orderItem.save();
+
+    // Redirect to the actual signed URL or Cloudinary URL
+    return res.redirect(orderItem.product_id.downloadUrl);
+  } catch (error) {
+    console.error('Download error:', error);
+    res.status(500).json({ error: 'Failed to process download request' });
   }
 };

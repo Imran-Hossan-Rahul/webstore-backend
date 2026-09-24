@@ -27,6 +27,23 @@ const marketOrderItemSchema = new mongoose.Schema({
   },
   variants: {
     type: String,
+  },
+  license_key: {
+    type: String,
+  },
+  download_token: {
+    type: String,
+  },
+  download_expires_at: {
+    type: Date,
+  },
+  download_attempts: {
+    type: Number,
+    default: 0,
+  },
+  max_downloads: {
+    type: Number,
+    default: 5,
   }
 }, {
   timestamps: true,

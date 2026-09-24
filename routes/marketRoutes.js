@@ -57,6 +57,7 @@ router.post('/orders/guest', orderController.createGuestOrder);
 router.post('/orders/guest/list', orderController.getGuestOrders);
 router.post('/orders/guest/track', orderController.trackGuestOrder);
 router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrderStatus);
+router.get('/download/:token', orderController.downloadDigitalProduct);
 
 // Procurement
 router.get('/procurement/candidates', protect, adminOnly, procurementController.getProcurementCandidates);
