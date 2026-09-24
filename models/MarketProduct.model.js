@@ -131,6 +131,23 @@ const marketProductSchema = new mongoose.Schema({
   },
   likedBy: [{
     type: String
+  }],
+  // Reviews
+  averageRating: {
+    type: Number,
+    default: 0
+  },
+  reviewCount: {
+    type: Number,
+    default: 0
+  },
+  reviews: [{
+    user_id: String, // ID of the reviewer
+    name: String,
+    rating: { type: Number, min: 1, max: 5 },
+    comment: String,
+    verified: { type: Boolean, default: false }, // only verified buyers can leave a review
+    createdAt: { type: Date, default: Date.now }
   }]
 }, {
   timestamps: true,
