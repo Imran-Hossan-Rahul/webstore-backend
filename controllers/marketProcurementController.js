@@ -7,7 +7,7 @@ import MarketWholesalerTransaction from '../models/MarketWholesalerTransaction.m
 
 export const getProcurementCandidates = async (req, res) => {
   try {
-    const products = await MarketProduct.find().populate('wholesaler_id').lean();
+    const products = await MarketProduct.find().lean();
     
     const unprocuredItems = await MarketOrderItem.find({ procurement_run_id: null })
       .populate('order_id')

@@ -39,12 +39,16 @@ export const getProducts = async (req, res) => {
             if (req.query.maxPrice !== undefined && req.query.maxPrice !== '') query.selling_price.$lte = Number(req.query.maxPrice);
             if (Object.keys(query.selling_price).length === 0) delete query.selling_price;
         }
+        
+        // Hide legacy physical products by default in the digital marketplace
+        if (req.query.includePhysical !== 'true') {
+            query.productType = { $exists: true, $ne: null };
+        }
     }
 
     // We use .lean() for maximum performance and .populate for joins
     const [products, total] = await Promise.all([
         MarketProduct.find(query)
-          .populate('wholesaler_id')
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -61,8 +65,7 @@ export const getProducts = async (req, res) => {
       variantGroups: Array.isArray(p.variantGroups) ? JSON.stringify(p.variantGroups) : p.variantGroups,
       techStack: Array.isArray(p.techStack) ? JSON.stringify(p.techStack) : p.techStack,
       changelog: Array.isArray(p.changelog) ? JSON.stringify(p.changelog) : p.changelog,
-      screenshotGallery: Array.isArray(p.screenshotGallery) ? JSON.stringify(p.screenshotGallery) : p.screenshotGallery,
-      wholesaler: p.wholesaler_id ? { ...p.wholesaler_id, id: p.wholesaler_id._id } : null
+      screenshotGallery: Array.isArray(p.screenshotGallery) ? JSON.stringify(p.screenshotGallery) : p.screenshotGallery
     }));
     
     res.json({
@@ -81,7 +84,6 @@ export const getProducts = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await MarketProduct.findById(req.params.id)
-      .populate('wholesaler_id')
       .lean();
       
     if (!product) return res.status(404).json({ error: 'Not found' });
@@ -93,10 +95,6 @@ export const getProductById = async (req, res) => {
     product.techStack = Array.isArray(product.techStack) ? JSON.stringify(product.techStack) : product.techStack;
     product.changelog = Array.isArray(product.changelog) ? JSON.stringify(product.changelog) : product.changelog;
     product.screenshotGallery = Array.isArray(product.screenshotGallery) ? JSON.stringify(product.screenshotGallery) : product.screenshotGallery;
-    
-    if (product.wholesaler_id) {
-      product.wholesaler = { ...product.wholesaler_id, id: product.wholesaler_id._id };
-    }
     
     let isLiked = false;
     if (req.user && req.user._id && product.likedBy) {

@@ -196,9 +196,9 @@ export const sendPasswordResetEmail = async (email, name, token) => {
 export const sendDigitalFulfillmentEmail = async (email, name, orderId, items) => {
   const itemsHtml = items.map(item => `
     <div style="margin-bottom: 24px; padding: 16px; background-color: #f8fafc; border-radius: 8px;">
-      <h3 style="margin: 0 0 12px 0; color: #0f172a;">\${item.productName}</h3>
-      \${item.licenseKey ? \`<p style="margin: 4px 0;"><strong>License Key:</strong> <code style="background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px;">\${item.licenseKey}</code></p>\` : ''}
-      \${item.downloadUrl ? \`<div style="margin-top: 16px;"><a href="\${item.downloadUrl}" style="background-color: #0071e3; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Download Product</a></div><p style="font-size: 11px; color: #64748b; margin-top: 8px;">Link expires in 7 days. Maximum 5 downloads.</p>\` : ''}
+      <h3 style="margin: 0 0 12px 0; color: #0f172a;">${item.productName}</h3>
+      ${item.licenseKey ? `<p style="margin: 4px 0;"><strong>License Key:</strong> <code style="background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${item.licenseKey}</code></p>` : ''}
+      ${item.downloadUrl ? `<div style="margin-top: 16px;"><a href="${item.downloadUrl}" style="background-color: #0071e3; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">Download Product</a></div><p style="font-size: 11px; color: #64748b; margin-top: 8px;">Link expires in 7 days. Maximum 5 downloads.</p>` : ''}
     </div>
   `).join('');
 
@@ -206,23 +206,23 @@ export const sendDigitalFulfillmentEmail = async (email, name, orderId, items) =
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 24px;">
       <div style="text-align: center; margin-bottom: 40px;">
         <h1 style="color: #0f172a; font-size: 24px; font-weight: 700; margin: 0;">Your Digital Goods Are Ready!</h1>
-        <p style="color: #64748b; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 8px;">Order #\${orderId}</p>
+        <p style="color: #64748b; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 8px;">Order #${orderId}</p>
       </div>
       
       <div style="color: #334155; font-size: 16px; line-height: 1.6;">
-        <p>Greetings, <strong>\${name || 'Customer'}</strong>,</p>
+        <p>Greetings, <strong>${name || 'Customer'}</strong>,</p>
         <p>Thank you for your purchase. Your digital products and licenses are ready for download below:</p>
         
         <div style="margin: 32px 0;">
-          \${itemsHtml}
+          ${itemsHtml}
         </div>
         
-        <p style="font-size: 14px; color: #64748b;">You can also access your downloads at any time from your <a href="\${CLIENT_URL}/market/orders">Orders Dashboard</a>.</p>
+        <p style="font-size: 14px; color: #64748b;">You can also access your downloads at any time from your <a href="${process.env.CLIENT_URL}/market/orders">Orders Dashboard</a>.</p>
       </div>
       
       <div style="margin-top: 60px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center;">
         <p style="font-size: 11px; color: #94a3b8; letter-spacing: 0.05em; line-height: 1.5;">
-          © \${new Date().getFullYear()} Codalina Inc. All rights reserved.
+          © ${new Date().getFullYear()} Codalina Inc. All rights reserved.
         </p>
       </div>
     </div>
@@ -230,12 +230,12 @@ export const sendDigitalFulfillmentEmail = async (email, name, orderId, items) =
 
   try {
     await transporter.sendMail({
-      from: \`"Codalina Delivery" <\${process.env.SMTP_USER}>\`,
+      from: `"Codalina Delivery" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: \`Your Digital Order #\${orderId} is Ready\`,
+      subject: `Your Digital Order #${orderId} is Ready`,
       html: html,
     });
-    logger.info(\`Digital fulfillment email dispatched to: \${email}\`);
+    logger.info(`Digital fulfillment email dispatched to: ${email}`);
   } catch (error) {
     logger.error("Digital Fulfillment Dispatch Failure:", error);
   }
