@@ -46,7 +46,7 @@ router.post('/products', protect, adminOnly, marketMediaUpload.array('media', 10
 router.put('/products/:id', protect, adminOnly, marketMediaUpload.array('media', 10), productController.updateProduct);
 router.post('/products/:id', protect, adminOnly, marketMediaUpload.array('media', 10), productController.updateProduct);
 router.delete('/products/:id', protect, adminOnly, productController.deleteProduct);
-router.get('/products/:id', optionalProtect, productController.getProductById);
+router.get('/products/:id', optionalProtect, cacheMiddleware(120), productController.getProductById);
 router.put('/products/:id/like', protect, productController.likeProduct);
 
 // Orders
@@ -70,3 +70,4 @@ router.post('/procurement/run', protect, adminOnly, procurementController.create
 router.post('/delivery/calculate', deliveryController.calculateDelivery);
 
 export default router;
+

@@ -43,7 +43,7 @@ router.patch("/profile", protect, updateUserProfile);
 router.get("/profile/:username", cacheMiddleware(300), getPublicProfile);
 router.get("/achievements", protect, getUserAchievements);
 router.get("/xp-history", protect, getXPHistory);
-router.get("/leaderboard", getLeaderboard);
+router.get("/leaderboard", cacheMiddleware(600), getLeaderboard);
 
 // Get Current User (Identity Audit)
 router.get("/me", protect, getMe);
@@ -107,5 +107,6 @@ router.post("/deactivate", protect, deactivateAccount);
 
 
 export default router;
+
 
 

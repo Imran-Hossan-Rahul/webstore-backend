@@ -266,6 +266,7 @@ userSchema.index({ name: 'text', username: 'text', email: 'text', bio: 'text', s
 userSchema.index({ role: 1, isActive: 1, createdAt: -1 }); // admin user listing
 userSchema.index({ createdAt: -1 });                        // user growth analytics
 userSchema.index({ isActive: 1, createdAt: -1 });           // active users filter
+userSchema.index({ "gamification.xp": -1 });                // optimized leaderboard sorting
 
 
 // -------- Password Validation & Hashing ----------
@@ -433,4 +434,5 @@ userSchema.methods.updateRoleSafely = async function (updates, updater) {
 const User =
   mongoose.models.User || mongoose.model("User", userSchema, "users");
 export default User;
+
 
