@@ -112,7 +112,12 @@ export const createNotification = async (recipientId, data) => {
     if (data.sender && typeof data.sender === 'object' && data.sender._id) {
        dbData.sender = data.sender._id; // Ensure Mongoose gets exactly an ObjectId
     }
-    await addNotificationJob(recipientId, dbData);
+    try {
+      await Notification.create({ recipient: recipientIdStr, ...dbData });
+    } catch (dbErr) {
+      console.error("Direct insert failed:", dbErr);
+      await addNotificationJob(recipientId, dbData);
+    }
 
     return { success: true };
   } catch (error) {
@@ -212,8 +217,15 @@ export const createBulkNotifications = async (recipientIds, data) => {
     // ═══════════════════════════════════════════════════════════
     
     if (jobs.length > 0) {
-      const { addBulkNotificationJobs } = await import("../queues/notificationQueue.js");
-      await addBulkNotificationJobs(jobs);
+      try {
+        const dbDocs = jobs.map(j => ({ recipient: j.recipientId, ...j.data }));
+        await Notification.insertMany(dbDocs);
+      } catch (dbErr) {
+        console.error("Direct bulk insert failed:", dbErr);
+        // Fallback to queue if direct fails
+        const { addBulkNotificationJobs } = await import("../queues/notificationQueue.js");
+        await addBulkNotificationJobs(jobs);
+      }
     }
 
     return { success: true, count: recipientIds.length };

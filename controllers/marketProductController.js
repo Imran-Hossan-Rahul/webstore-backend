@@ -2,8 +2,8 @@ import MarketProduct from '../models/MarketProduct.model.js';
 import MarketCategory from '../models/MarketCategory.model.js';
 import { clearCache } from '../utils/cache.js';
 import cloudinary from '../services/cloudinary.js';
-import fs from 'fs';
-
+import fs from 'fs-extra';
+import path from 'path';
 import logger from '../utils/logger.js';
 
 export const getProducts = async (req, res) => {
@@ -119,22 +119,39 @@ export const createProduct = async (req, res) => {
       for (const file of req.files) {
         // Determine options based on file type
         const isImage = file.mimetype.startsWith('image/');
-        const uploadOptions = {
-          folder: "market/products",
-          resource_type: isImage ? "image" : "video"
-        };
+        const isZip = file.originalname.match(/\.(zip|rar|tar|gz)$/i);
         
-        // Optimize images automatically to webp
-        if (isImage) {
-          uploadOptions.format = "webp";
-        }
-        
-        try {
-          const uploaded = await cloudinary.uploader.upload(file.path, uploadOptions);
-          uploadedUrls.push(uploaded.secure_url);
-        } catch (uploadErr) {
-          console.error("Cloudinary upload error:", uploadErr);
-          // We continue to next file even if one fails
+        if (isZip) {
+          try {
+            const targetDir = path.resolve('uploads', 'products');
+            await fs.ensureDir(targetDir);
+            const fileName = `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+            const targetPath = path.join(targetDir, fileName);
+            await fs.copyFile(file.path, targetPath);
+            
+            data.downloadUrl = `/uploads/products/${fileName}`;
+            data.fileSize = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            data.fileFormat = file.originalname.split('.').pop().toUpperCase();
+          } catch (err) {
+            console.error("Local zip save error:", err);
+          }
+        } else {
+          let resourceType = 'video';
+          if (isImage) resourceType = 'image';
+
+          const uploadOptions = {
+            folder: "market/products",
+            resource_type: resourceType
+          };
+          
+          if (isImage) uploadOptions.format = "webp";
+          
+          try {
+            const uploaded = await cloudinary.uploader.upload(file.path, uploadOptions);
+            uploadedUrls.push(uploaded.secure_url);
+          } catch (uploadErr) {
+            console.error("Cloudinary upload error:", uploadErr);
+          }
         }
         
         // Clean up temp file asynchronously
@@ -152,8 +169,11 @@ export const createProduct = async (req, res) => {
     }
     
     if (typeof data.specifications === 'string') data.specifications = JSON.parse(data.specifications);
-    if (typeof data.variantGroups === 'string') data.variantGroups = JSON.parse(data.variantGroups);
-    if (typeof data.techStack === 'string') data.techStack = JSON.parse(data.techStack);
+    if (typeof data.variantGroups === 'string') {
+      console.log('Received variantGroups string:', data.variantGroups);
+      data.variantGroups = JSON.parse(data.variantGroups);
+      console.log('Parsed variantGroups:', JSON.stringify(data.variantGroups, null, 2));
+    }    if (typeof data.techStack === 'string') data.techStack = JSON.parse(data.techStack);
     if (typeof data.changelog === 'string') data.changelog = JSON.parse(data.changelog);
     if (typeof data.screenshotGallery === 'string') data.screenshotGallery = JSON.parse(data.screenshotGallery);
 
@@ -186,17 +206,35 @@ export const updateProduct = async (req, res) => {
       
       for (const file of req.files) {
         const isImage = file.mimetype.startsWith('image/');
-        const uploadOptions = {
-          folder: "market/products",
-          resource_type: isImage ? "image" : "video"
-        };
-        if (isImage) uploadOptions.format = "webp";
+        const isZip = file.originalname.match(/\.(zip|rar|tar|gz)$/i);
         
-        try {
-          const uploaded = await cloudinary.uploader.upload(file.path, uploadOptions);
-          uploadedUrls.push(uploaded.secure_url);
-        } catch (uploadErr) {
-          console.error("Cloudinary upload error:", uploadErr);
+        if (isZip) {
+          try {
+            const targetDir = path.resolve('uploads', 'products');
+            await fs.ensureDir(targetDir);
+            const fileName = `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+            const targetPath = path.join(targetDir, fileName);
+            await fs.copyFile(file.path, targetPath);
+            
+            data.downloadUrl = `/uploads/products/${fileName}`;
+            data.fileSize = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            data.fileFormat = file.originalname.split('.').pop().toUpperCase();
+          } catch (err) {
+            console.error("Local zip save error:", err);
+          }
+        } else {
+          const uploadOptions = {
+            folder: "market/products",
+            resource_type: isImage ? "image" : "video"
+          };
+          if (isImage) uploadOptions.format = "webp";
+          
+          try {
+            const uploaded = await cloudinary.uploader.upload(file.path, uploadOptions);
+            uploadedUrls.push(uploaded.secure_url);
+          } catch (uploadErr) {
+            console.error("Cloudinary upload error:", uploadErr);
+          }
         }
         
         fs.promises.unlink(file.path).catch(err => { if (err.code !== 'ENOENT') console.error(err); });

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Chat from "../models/Chat.model.js";
 import Message from "../models/Message.model.js";
 import User from "../models/User.model.js";
+import MarketOrder from "../models/MarketOrder.model.js";
 import { createNotification } from "./notificationController.js";
 import { chatMediaQueue } from "../queues/chatMediaQueue.js";
 import { chatMessageQueue } from "../queues/chatMessageQueue.js";
@@ -63,6 +64,67 @@ export const getOrCreateSupportChat = async (req, res) => {
   }
 };
 
+// Get or create the collaboration room for an order (customer + admins only)
+export const getOrCreateOrderRoom = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = (req.user._id || req.user.id).toString();
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ success: false, message: "Invalid order id" });
+    }
+
+    const order = await MarketOrder.findById(orderId).lean();
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    const currentUser = await User.findById(userId).select("role");
+    const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
+    const isOwner = order.user_id && order.user_id.toString() === userId;
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+    if (!order.user_id) {
+      return res.status(400).json({
+        success: false,
+        code: "GUEST_ORDER",
+        message: "This order was placed as a guest, so it has no account to chat with."
+      });
+    }
+
+    const populateFields = "username name email profilePicture role lastActiveAt";
+    let chat = await Chat.findOne({ orderId: order._id }).populate("participants", populateFields);
+
+    if (!chat) {
+      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select("_id").lean();
+      const participantIds = [order.user_id, ...admins.map(a => a._id.toString())]
+        .filter((id, idx, arr) => arr.indexOf(id) === idx);
+      try {
+        chat = await Chat.create({ participants: participantIds, orderId: order._id });
+      } catch (err) {
+        // Lost a race with a concurrent request — the unique index guarantees one room per order
+        if (err.code !== 11000) throw err;
+        chat = await Chat.findOne({ orderId: order._id });
+      }
+      chat = await chat.populate("participants", populateFields);
+      await MarketOrder.updateOne({ _id: order._id }, { $set: { collaborationRoomId: chat._id.toString() } });
+    } else if (!order.collaborationRoomId) {
+      await MarketOrder.updateOne({ _id: order._id }, { $set: { collaborationRoomId: chat._id.toString() } });
+    }
+
+    // Admins who joined after the room was created still need to be participants
+    // so the room appears in their list and they receive unread counts.
+    if (isAdmin && !chat.participants.some(p => p._id.toString() === userId)) {
+      await Chat.updateOne({ _id: chat._id }, { $addToSet: { participants: userId } });
+      chat = await Chat.findById(chat._id).populate("participants", populateFields);
+    }
+
+    res.json({ success: true, chat });
+  } catch (error) {
+    console.error("Order room error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Get or create chat between two users
 export const getOrCreateChat = async (req, res) => {
   try {
@@ -70,7 +132,8 @@ export const getOrCreateChat = async (req, res) => {
     const currentUserId = req.user._id || req.user.id;
 
     let chat = await Chat.findOne({
-      participants: { $all: [currentUserId, userId] }
+      participants: { $all: [currentUserId, userId] },
+      orderId: { $exists: false }
     }).populate("participants", "username name email profilePicture role lastActiveAt");
 
     const targetUser = await User.findById(userId).select("privacySettings name username followers role");
@@ -179,7 +242,7 @@ export const getChatMessages = async (req, res) => {
     const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
     
     const isParticipant = chat.participants.some(p => p._id.toString() === userId.toString());
-    if (!isParticipant && !(isAdmin && chat.isSupportChat)) {
+    if (!isParticipant && !(isAdmin && (chat.isSupportChat || chat.orderId))) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
@@ -241,7 +304,7 @@ export const sendMessage = async (req, res) => {
     
     const isParticipant = chat.participants.some(p => p.toString() === userIdStr);
     
-    if (!isParticipant && !(isAdmin && chat.isSupportChat)) {
+    if (!isParticipant && !(isAdmin && (chat.isSupportChat || chat.orderId))) {
       return res.status(403).json({ success: false, message: "You are not a participant of this chat" });
     }
 
@@ -395,7 +458,7 @@ export const uploadMedia = async (req, res) => {
     const currentUser = await User.findById(userId);
     const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
     const isParticipant = chat.participants.some(p => p.toString() === userId.toString());
-    if (!isParticipant && !(isAdmin && chat.isSupportChat)) return res.status(403).json({ success: false, message: "Unauthorized" });
+    if (!isParticipant && !(isAdmin && (chat.isSupportChat || chat.orderId))) return res.status(403).json({ success: false, message: "Unauthorized" });
 
     const isImage = req.file.mimetype.startsWith("image/");
     const fileType = isImage ? "image" : "file";
@@ -482,6 +545,17 @@ export const getUnreadChatsCount = async (req, res) => {
       matchQuery = { $or: [{ participants: userId }, { isSupportChat: true }] };
     }
 
+    // "Seen" semantics (like Messenger): once the user has opened the chat panel,
+    // only messages that arrived AFTER that moment should light up the navbar dot.
+    const messageFilter = {
+      $expr: { $eq: ["$chatId", "$$chatId"] },
+      sender: { $ne: userId },
+      readBy: { $ne: userId }
+    };
+    if (currentUser?.chatLastSeenAt) {
+      messageFilter.createdAt = { $gt: currentUser.chatLastSeenAt };
+    }
+
     const unreadCountAggregate = await Chat.aggregate([
       { $match: matchQuery },
       { 
@@ -489,13 +563,7 @@ export const getUnreadChatsCount = async (req, res) => {
           from: "messages",
           let: { chatId: "$_id" },
           pipeline: [
-            { 
-              $match: {
-                $expr: { $eq: ["$chatId", "$$chatId"] },
-                sender: { $ne: userId },
-                readBy: { $ne: userId }
-              }
-            },
+            { $match: messageFilter },
             { $limit: 1 } // Early exit ensures massive performance gains
           ],
           as: "unreadMessages"
@@ -510,6 +578,19 @@ export const getUnreadChatsCount = async (req, res) => {
     res.json({ success: true, count });
   } catch (error) {
     console.error("Unread chat count error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Record that the user has opened the chat panel (clears the navbar "new message" dot
+// until a newer message arrives). Does NOT mark individual messages as read.
+export const markChatsSeen = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    await User.updateOne({ _id: userId }, { $set: { chatLastSeenAt: new Date() } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Mark chats seen error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

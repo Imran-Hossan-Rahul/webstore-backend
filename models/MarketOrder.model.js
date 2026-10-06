@@ -18,57 +18,44 @@ const marketOrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Order placed', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+    enum: ['Pending Verification', 'Payment Failed', 'Confirmed', 'In Collaboration', 'Provisioning', 'Active', 'Delivered', 'Suspended', 'Cancelled'],
+    default: 'Pending Verification',
     required: true,
     index: true,
   },
-  courier_name: {
+  projectPhase: {
     type: String,
+    enum: ['Discovery', 'Design', 'Development', 'Testing', 'Launch', 'N/A'],
+    default: 'N/A' // Used for Custom Services
   },
-  tracking_id: {
-    type: String,
+  deliveryDomain: {
+    type: String, // The domain the license will be bound to
   },
-  delivery_charge: {
-    type: Number,
-    default: 0
+  githubHandle: {
+    type: String, // For auto-granting repo access
   },
-  discount_amount: {
-    type: Number,
-    default: 0
+  collaborationRoomId: {
+    type: String, // Reference to the dedicated chat/file room
   },
-  subtotal: {
-    type: Number,
-    default: 0
-  },
-  total_amount: {
-    type: Number,
-    default: 0
-  },
-  source_channel: {
-    type: String,
-  },
-  payment_method: {
-    type: String,
-    default: 'Cash on Delivery'
-  },
-  payment_number: {
-    type: String,
-  },
-  payment_trx_id: {
-    type: String,
-  },
+  // DEPRECATED PHYSICAL FIELDS
+  courier_name: { type: String },
+  tracking_id: { type: String },
+  delivery_charge: { type: Number, default: 0 },
+  // --------------------------
+  discount_amount: { type: Number, default: 0 },
+  subtotal: { type: Number, default: 0 },
+  total_amount: { type: Number, default: 0 },
+  source_channel: { type: String },
+  payment_method: { type: String, default: 'Stripe' },
+  payment_number: { type: String }, // Used for manual bKash/Nagad
+  payment_trx_id: { type: String }, // TxID for manual or automated
   payment_status: {
     type: String,
-    enum: ['Pending', 'Verified', 'Failed'],
+    enum: ['Pending', 'Verified', 'Failed', 'Refunded'],
     default: 'Pending'
   },
-  payment_due: {
-    type: Number,
-    default: 0
-  },
-  confirmed_at: {
-    type: Date,
-  }
+  payment_due: { type: Number, default: 0 },
+  confirmed_at: { type: Date }
 }, {
   timestamps: true,
 });

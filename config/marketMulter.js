@@ -32,20 +32,27 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedImages = ["image/jpeg", "image/png", "image/gif", "image/webp"];
   const allowedVideos = ["video/mp4", "video/webm", "video/ogg"];
+  const allowedArchives = [
+    "application/zip", 
+    "application/x-zip-compressed", 
+    "application/x-rar-compressed", 
+    "application/gzip", 
+    "application/x-tar"
+  ];
 
-  const allAllowed = [...allowedImages, ...allowedVideos];
+  const allAllowed = [...allowedImages, ...allowedVideos, ...allowedArchives];
 
   if (allAllowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("File type not supported. Please upload valid image or video formats."));
+    cb(new Error("File type not supported. Please upload valid image, video, or ZIP archive formats."));
   }
 };
 
 const marketMediaUpload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
 });
 
 export default marketMediaUpload;

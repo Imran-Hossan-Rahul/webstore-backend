@@ -51,6 +51,7 @@ const userSchema = new Schema(
     lastLogin: { type: Date },
     lastFailedLogin: { type: Date },
     lastActiveAt: { type: Date }, // NEW FIELD
+    chatLastSeenAt: { type: Date }, // last time the user opened the chat panel (drives the navbar "new message" dot)
     isActive: { type: Boolean, default: true },
     emailVerified: { type: Boolean, default: false },
     emailVerificationToken: { type: String },

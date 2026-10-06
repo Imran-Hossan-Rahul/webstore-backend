@@ -43,7 +43,15 @@ const marketOrderItemSchema = new mongoose.Schema({
   },
   max_downloads: {
     type: Number,
-    default: 5,
+    default: 3,
+  },
+  bound_domain: {
+    type: String, // Tracks which domain this license is locked to
+  },
+  license_status: {
+    type: String,
+    enum: ['active', 'suspended'],
+    default: 'active'
   }
 }, {
   timestamps: true,

@@ -54,6 +54,7 @@ const marketProductSchema = new mongoose.Schema({
     options: [{
       label: String,
       priceDifference: Number,
+      originalPriceDifference: Number,
       imageIndex: Number
     }]
   }],
@@ -74,40 +75,42 @@ const marketProductSchema = new mongoose.Schema({
   // --- NEW DIGITAL PRODUCT FIELDS ---
   productType: {
     type: String,
-    enum: ['SaaS Tool', 'Web Template', 'Script/Automation', 'Source Code', 'UI Kit/Plugin']
+    enum: ['Company Website', 'E-Commerce Website', 'SaaS Tool', 'Web Template', 'Script/Automation', 'UI Kit/Plugin', 'Custom Service'],
+    default: 'Company Website'
   },
   licenseType: {
     type: String,
-    enum: ['Personal', 'Commercial', 'Extended']
+    enum: ['Personal', 'Commercial', 'Extended', 'Domain-Locked'],
+    default: 'Domain-Locked'
   },
-  demoUrl: {
-    type: String
-  },
-  documentationUrl: {
-    type: String
-  },
-  techStack: [{
-    type: String
-  }],
-  fileFormat: {
-    type: String
-  },
-  fileSize: {
-    type: String
-  },
-  version: {
-    type: String
-  },
+  demoUrl: { type: String },
+  videoUrl: { type: String }, // YouTube/Vimeo demo
+  documentationUrl: { type: String },
+  repoLink: { type: String }, // Private github repo
+  downloadUrl: { type: String }, // AWS S3 zip file
+  techStack: [{ type: String }],
+  fileFormat: { type: String },
+  fileSize: { type: String },
+  version: { type: String, default: "1.0.0" },
   changelog: [{
     version: String,
-    date: Date,
+    date: { type: Date, default: Date.now },
     notes: String
   }],
-  downloadUrl: {
-    type: String
-  },
-  screenshotGallery: [{
-    type: String
+  screenshotGallery: [{ type: String }],
+  
+  // IP Lock & Security Defaults
+  requireIpLock: { type: Boolean, default: true },
+  requireWatermark: { type: Boolean, default: true },
+
+  // Tiered Pricing for display (e.g. Starter, Growth, Enterprise)
+  tiers: [{
+    id: String,
+    name: String,
+    price: Number,
+    isPopular: Boolean,
+    trustLine: String,
+    bullets: [String]
   }],
   // --- END DIGITAL PRODUCT FIELDS ---
   isFeatured: {

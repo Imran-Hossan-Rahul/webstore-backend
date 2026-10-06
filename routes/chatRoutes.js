@@ -10,7 +10,9 @@ import {
   uploadMedia,
   getUnreadChatsCount,
   deleteMessage,
-  getOrCreateSupportChat
+  getOrCreateSupportChat,
+  markChatsSeen,
+  getOrCreateOrderRoom
 } from "../controllers/chatController.js";
 import chatMediaUpload from "../config/chatMediaMulter.js";
 
@@ -20,11 +22,13 @@ router.use(verifyAccessToken);
 
 // Specific routes first to avoid conflict with dynamic routes
 router.get("/unread-count", getUnreadChatsCount);
+router.put("/seen", markChatsSeen);
 router.get("/users", getUsers);
 router.get("/chats", getUserChats);
 
 // Dynamic routes after
 router.get("/support", getOrCreateSupportChat);
+router.get("/order/:orderId", getOrCreateOrderRoom);
 router.get("/chat/:userId", getOrCreateChat);
 router.get("/messages/:chatId", getChatMessages);
 router.post("/message/:chatId", sendMessage);

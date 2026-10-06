@@ -14,7 +14,7 @@ connectToDatabase()
  * Processes notification jobs: Saves to DB and emits socket event
  */
 const craftsman = new Craftsman(
-  "notification-queue",
+  "NotificationQueue",
   async (job) => {
     const { recipientId, data } = job.data;
 

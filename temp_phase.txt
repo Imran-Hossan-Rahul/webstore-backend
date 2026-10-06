@@ -1,0 +1,9 @@
+                if (order.payment_status === 'Verified' && currentOrder.payment_status !== 'Verified') {
+                  automatedMsg = "Your payment has been successfully verified! ?\n\nYour download links and license details are now available in the order details panel.\n\nFor more information, please message this chat or the Codalina Support chat.";
+                } else if (order.status === 'Delivered' && currentOrder.status !== 'Delivered') {
+                  automatedMsg = "Great news! Your order has been marked as Delivered! ??\n\nWe hope you're satisfied with your purchase.\n\nFor more information or if you need any further assistance, please message this chat or the Codalina Support chat.";
+                } else if (order.status === 'Suspended' && currentOrder.status !== 'Suspended') {
+                  automatedMsg = "Notice: Your order has been Suspended. ??\n\nThere seems to be an issue with your order. Please review your details.\n\nFor more information, please message this chat or the Codalina Support chat.";
+                } else if (order.projectPhase && order.projectPhase !== currentOrder.projectPhase && order.projectPhase !== 'Not applicable') {
+                  automatedMsg = "Project Update: The phase of your project has been updated to \"" + order.projectPhase + "\". ??\n\nWe are making progress on your order. You can check the current status in your order details.\n\nFor more information, please message this chat or the Codalina Support chat.";
+                }

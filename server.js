@@ -445,6 +445,10 @@ app.use("/api/v1/wallet", walletRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
 app.use("/api/v1/market", marketRoutes);
 app.use("/api/v1/track", trackRoutes);
+import licenseRoutes from './routes/licenseRoutes.js';
+import adminLicenseRoutes from './routes/adminLicenseRoutes.js';
+app.use("/api/v1/license", licenseRoutes);
+app.use("/api/v1/admin/license", adminLicenseRoutes);
 
 
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));

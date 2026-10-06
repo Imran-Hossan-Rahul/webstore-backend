@@ -1,0 +1,53 @@
+      // Automated status change messages
+      if (order.collaborationRoomId) {
+        try {
+          const Chat = (await import('../models/Chat.model.js')).default;
+          const Message = (await import('../models/Message.model.js')).default;
+          const User = (await import('../models/User.model.js')).default;
+          const chat = await Chat.findById(order.collaborationRoomId);
+          
+          if (chat) {
+            const adminUser = await User.findOne({ role: { $in: ['admin', 'superadmin'] } }).sort({ role: -1 }).select('_id');
+            if (adminUser) {
+              let automatedMsg = null;
+              
+              if (order.payment_status === 'Verified' && currentOrder.payment_status !== 'Verified') {
+                automatedMsg = "Your payment has been successfully verified! ?\n\nYour download links and license details are now available in the order details panel.\n\nFor more information, please message this chat or the Codalina Support chat.";
+              } else if (order.status === 'Delivered' && currentOrder.status !== 'Delivered') {
+                automatedMsg = "Great news! Your order has been marked as Delivered! ??\n\nWe hope you're satisfied with your purchase.\n\nFor more information or if you need any further assistance, please message this chat or the Codalina Support chat.";
+              } else if (order.status === 'Suspended' && currentOrder.status !== 'Suspended') {
+                automatedMsg = "Notice: Your order has been Suspended. ??\n\nThere seems to be an issue with your order. Please review your details.\n\nFor more information, please message this chat or the Codalina Support chat.";
+              }
+              
+              if (automatedMsg) {
+                const newMessage = await Message.create({
+                  chatId: chat._id,
+                  sender: adminUser._id,
+                  content: automatedMsg,
+                  type: "text",
+                });
+    
+                chat.lastMessage = {
+                  content: automatedMsg,
+                  sender: adminUser._id,
+                  createdAt: newMessage.createdAt
+                };
+                await chat.save();
+                
+                const io = req.app.get("io");
+                if (io) {
+                  const populatedMessage = await Message.findById(newMessage._id).populate("sender", "username name profilePicture");
+                  io.to(chat._id.toString()).emit("message:new", populatedMessage);
+                  chat.participants.forEach((participantId) => {
+                    if (participantId.toString() !== adminUser._id.toString()) {
+                      io.emit(user::newMessage, { chatId: chat._id.toString(), message: populatedMessage });
+                    }
+                  });
+                }
+              }
+            }
+          }
+        } catch (chatErr) {
+          console.error("Failed to send status update chat message:", chatErr);
+        }
+      }
