@@ -16,7 +16,7 @@ const messages = {
   // future: bn, es, fr etc.
 };
 
-export const getMessages = (lang = "en") => messages[lang] || messages.en;
+const getMessages = (lang = "en") => messages[lang] || messages.en;
 
 export const registerSchema = (lang = "en") => {
   const msg = getMessages(lang);
@@ -92,4 +92,5 @@ export const resetPasswordSchema = (lang = "en") => {
       }),
   });
 };
+
 

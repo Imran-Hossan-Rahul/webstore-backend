@@ -97,7 +97,7 @@ export const adminOnly = (req, res, next) => {
 // --------------------
 // Restrict to specific roles
 // --------------------
-export const restrictTo = (...roles) => {
+const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
@@ -108,6 +108,7 @@ export const restrictTo = (...roles) => {
     next();
   };
 };
+
 
 
 

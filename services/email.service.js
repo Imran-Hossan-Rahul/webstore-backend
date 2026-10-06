@@ -128,7 +128,7 @@ export const sendEmailChangeVerification = async (email, name, token) => {
  * @param {string} toName      - Recipient display name (unused in body – for logging)
  * @param {object} payload     - { subject: string, bodyHtml: string }
  */
-export const sendEventEmail = async (toEmail, toName, { subject, bodyHtml }) => {
+const sendEventEmail = async (toEmail, toName, { subject, bodyHtml }) => {
   try {
     await transporter.sendMail({
       from: `"Platform Notifications" <${process.env.SMTP_USER}>`,
@@ -240,3 +240,4 @@ export const sendDigitalFulfillmentEmail = async (email, name, orderId, items) =
     logger.error("Digital Fulfillment Dispatch Failure:", error);
   }
 };
+

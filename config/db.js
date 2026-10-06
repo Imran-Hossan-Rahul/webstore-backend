@@ -145,7 +145,8 @@ export async function connectToDatabase() {
 }
 
 // ---- Healthcheck helper ----
-export function isDatabaseConnected() {
+function isDatabaseConnected() {
   return mongoose.connection.readyState === 1;
 }
+
 

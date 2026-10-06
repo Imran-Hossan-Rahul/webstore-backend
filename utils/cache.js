@@ -1,7 +1,7 @@
 import NodeCache from 'node-cache';
 
 // Standard TTL of 5 minutes (300 seconds), check for expired keys every 60 seconds
-export const appCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
+const appCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 export const cacheMiddleware = (duration) => {
   return (req, res, next) => {
@@ -40,3 +40,4 @@ export const clearCache = (pattern) => {
   const toDelete = keys.filter(k => k.includes(pattern));
   appCache.del(toDelete);
 };
+

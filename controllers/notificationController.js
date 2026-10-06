@@ -240,7 +240,7 @@ export const createBulkNotifications = async (recipientIds, data) => {
  * 
  * Use this for 1000+ recipients to avoid memory issues
  */
-export const createBulkNotificationsChunked = async (recipientIds, data, chunkSize = 100) => {
+const createBulkNotificationsChunked = async (recipientIds, data, chunkSize = 100) => {
   try {
     const chunks = [];
     
@@ -267,3 +267,4 @@ export const createBulkNotificationsChunked = async (recipientIds, data, chunkSi
     return null;
   }
 };
+

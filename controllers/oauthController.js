@@ -41,7 +41,7 @@ const setTokenCookies = (res, accessToken, refreshTokenDoc, refreshToken) => {
  * @desc    Redirect user to GitHub OAuth consent screen (Connect)
  * @route   GET /api/v1/oauth/github/connect
  */
-export const githubConnectRedirect = (req, res) => {
+const githubConnectRedirect = (req, res) => {
   if (!GITHUB_CLIENT_ID) {
     return res.status(501).json({ success: false, message: "GitHub OAuth not configured" });
   }
@@ -58,7 +58,7 @@ export const githubConnectRedirect = (req, res) => {
  * @desc    Redirect user to GitHub OAuth consent screen (Login)
  * @route   GET /api/v1/oauth/github/login
  */
-export const githubLoginRedirect = (req, res) => {
+const githubLoginRedirect = (req, res) => {
   if (!GITHUB_CLIENT_ID) {
     return res.status(501).json({ success: false, message: "GitHub OAuth not configured" });
   }
@@ -76,7 +76,7 @@ export const githubLoginRedirect = (req, res) => {
  * @desc    GitHub OAuth callback — handle both Connect and Login
  * @route   GET /api/v1/oauth/github/callback
  */
-export const githubConnectCallback = async (req, res) => {
+const githubConnectCallback = async (req, res) => {
   try {
     const { code, state: stateQuery } = req.query;
     if (!code) return res.redirect(`${CLIENT_URL}/auth/login?error=no_code`);
@@ -392,3 +392,4 @@ export const getGithubRepos = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+

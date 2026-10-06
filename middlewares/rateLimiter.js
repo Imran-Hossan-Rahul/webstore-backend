@@ -12,7 +12,7 @@ const createLimiter = (windowMs, max, message) => {
 };
 
 // 🔒 Auth Limiter: Prevent brute-force on login/register
-export const authLimiter = createLimiter(
+const authLimiter = createLimiter(
   15 * 60 * 1000, // 15 minutes
   20, // 20 requests per window
   "Too many authentication attempts. Please try again in 15 minutes."
@@ -45,4 +45,5 @@ export const tokenRewardLimiter = createLimiter(
   5, // 5 rewards per day
   "Daily reward limit reached. Please come back tomorrow."
 );
+
 

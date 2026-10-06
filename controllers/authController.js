@@ -451,7 +451,7 @@ export const createAdminUserController = async (req, res) => {
   }
 };
 
-export const deleteAdminController = async (req, res) => {
+const deleteAdminController = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -505,7 +505,7 @@ export const getUserCount = async (req, res) => {
   }
 };
 
-export const getCraftsmen = async (req, res) => {
+const getCraftsmen = async (req, res) => {
   try {
     const CraftsmanProfile = (await import("../models/CraftsmanProfile.model.js")).default;
     
@@ -701,3 +701,4 @@ export const guestLogin = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
+

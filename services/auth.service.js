@@ -147,7 +147,7 @@ export const revokeRefreshToken = async (token) => {
 };
 
 // ---- Revoke all tokens for a user ----
-export const revokeAllRefreshTokensForUser = async (userId) => {
+const revokeAllRefreshTokensForUser = async (userId) => {
   await RefreshToken.updateMany(
     { user: userId, revoked: false },
     {
@@ -156,4 +156,5 @@ export const revokeAllRefreshTokensForUser = async (userId) => {
     }
   );
 };
+
 

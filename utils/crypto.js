@@ -53,7 +53,7 @@ export const signPayload = (payload) => {
  * @param {String} signatureBase64 
  * @returns {Boolean}
  */
-export const verifySignature = (payload, signatureBase64) => {
+const verifySignature = (payload, signatureBase64) => {
   const { publicKey } = getKeys();
   const payloadStr = JSON.stringify(payload);
   const signature = Buffer.from(signatureBase64, 'base64');
@@ -73,7 +73,8 @@ export const hashLicenseKey = (licenseKey) => {
 /**
  * Generates a CSPRNG readable license key format: XXXX-XXXX-XXXX-XXXX
  */
-export const generateReadableLicenseKey = () => {
+const generateReadableLicenseKey = () => {
   const generateSegment = () => crypto.randomBytes(2).toString('hex').toUpperCase();
   return `${generateSegment()}-${generateSegment()}-${generateSegment()}-${generateSegment()}`;
 };
+

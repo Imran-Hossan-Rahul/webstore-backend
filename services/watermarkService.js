@@ -50,7 +50,7 @@ export const streamWatermarkedZip = (res, sourceDir, fingerprint) => {
     archive.pipe(res);
 
     // 1. Write the Canary Token to a config file dynamically inside the source directory
-    const canaryContent = `// DO NOT REMOVE THIS FILE\n// CODALINA-DRM-FINGERPRINT: ${fingerprint.canary_token}\nexport const WATERMARK = "${fingerprint.watermark_seed}";\n`;
+    const canaryContent = `// DO NOT REMOVE THIS FILE\n// CODALINA-DRM-FINGERPRINT: ${fingerprint.canary_token}\nconst WATERMARK = "${fingerprint.watermark_seed}";\n`;
     
     if (fs.existsSync(sourceDir)) {
       // Find actual project root (handle single wrapper folder cases like 'ai_saas/src/...')
@@ -77,3 +77,4 @@ export const streamWatermarkedZip = (res, sourceDir, fingerprint) => {
     archive.finalize().then(() => resolve());
   });
 };
+
