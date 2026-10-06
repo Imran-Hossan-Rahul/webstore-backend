@@ -270,7 +270,7 @@ export const createOrder = async (req, res) => {
     
     res.status(201).json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('CUSTOM BRIEF ERROR:', error); res.status(400).json({ error: error.message });
   }
 };
 
@@ -368,7 +368,7 @@ export const createGuestOrder = async (req, res) => {
     
     res.status(201).json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('CUSTOM BRIEF ERROR:', error); res.status(400).json({ error: error.message });
   }
 };
 
@@ -648,7 +648,7 @@ export const updateOrderStatus = async (req, res) => {
     
     res.json(order);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('CUSTOM BRIEF ERROR:', error); res.status(400).json({ error: error.message });
   }
 };
 
@@ -807,13 +807,13 @@ export const verifyLicense = async (req, res) => {
        try {
          const jwt = (await import('jsonwebtoken')).default;
          const token = req.headers.authorization.split(' ')[1];
-         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+         const decoded = jwt.verify(token, process.env.JWT_SECRET_ACCESS_TOKEN);
          userId = decoded.id;
        } catch (err) {}
     } else if (req.cookies && req.cookies.access_token) {
        try {
          const jwt = (await import('jsonwebtoken')).default;
-         const decoded = jwt.verify(req.cookies.access_token, process.env.JWT_SECRET);
+         const decoded = jwt.verify(req.cookies.access_token, process.env.JWT_SECRET_ACCESS_TOKEN);
          userId = decoded.id;
        } catch (err) {}
     }
@@ -923,6 +923,8 @@ export const verifyLicense = async (req, res) => {
     
     res.status(201).json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('CUSTOM BRIEF ERROR:', error); res.status(400).json({ error: error.message });
   }
 };
+
+
