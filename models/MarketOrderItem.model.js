@@ -10,7 +10,9 @@ const marketOrderItemSchema = new mongoose.Schema({
   product_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MarketProduct',
-    required: true,
+  },
+  product_name: {
+    type: String,
   },
   quantity: {
     type: Number,

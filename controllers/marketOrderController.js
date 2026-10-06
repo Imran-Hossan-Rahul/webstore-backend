@@ -796,3 +796,254 @@ export const verifyLicense = async (req, res) => {
   }
 };
 
+
+export const submitCustomBrief = async (req, res) => {
+  try {
+    const { name, email, projectType, budget, timeline, projectDetails } = req.body;
+    const userId = req.user ? req.user._id : null;
+    
+    // Create the main order
+    const order = await MarketOrder.create({
+      user_id: userId,
+      phone: '',
+      email,
+      customer_name: name,
+      status: 'Pending Verification',
+      projectPhase: 'Discovery',
+      source_channel: 'Custom Brief',
+      delivery_charge: 0,
+      discount_amount: 0,
+      subtotal: 0,
+      total_amount: 0,
+      payment_method: 'Custom Project',
+    });
+    
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    const createdItem = await MarketOrderItem.create({
+      order_id: order._id,
+      product_id: null,
+      product_name: 'Custom Project Brief: ' + projectType,
+      quantity: 1,
+      price_at_purchase: 0,
+      license_key: crypto.randomUUID().toUpperCase(),
+      download_token: crypto.randomBytes(16).toString('hex'),
+      download_expires_at: expiresAt,
+      download_attempts: 0,
+      max_downloads: 5
+    });
+
+    const result = order.toObject();
+    result.id = result._id;
+    const obj = createdItem.toObject();
+    obj.id = obj._id;
+    result.items = [obj];
+
+    // Notify Admins
+    try {
+      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select("_id").lean();
+      if (admins.length > 0) {
+        const adminIds = admins.map(a => a._id);
+        const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+        await createBulkNotifications(adminIds, {
+           title: \New Custom Brief (#\)\,
+           message: \\ submitted a brief: \.\,
+           type: 'order',
+           actionUrl: \/admin/orders\
+        });
+      }
+    } catch (notifErr) {}
+    
+    // Create Collaboration Room
+    try {
+      const Chat = (await import('../models/Chat.model.js')).default;
+      const Message = (await import('../models/Message.model.js')).default;
+
+      const adminUser = await User.findOne({ role: { $in: ['admin', 'superadmin'] } }).sort({ role: -1 }).select('_id');
+      const adminId = adminUser ? adminUser._id : null;
+
+      if (adminId) {
+        const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select("_id").lean();
+        const participantIds = [];
+        if (userId) participantIds.push(userId.toString());
+        admins.forEach(a => participantIds.push(a._id.toString()));
+        const uniqueParticipants = [...new Set(participantIds)];
+
+        let chat = await Chat.create({ participants: uniqueParticipants, orderId: order._id });
+        await MarketOrder.updateOne({ _id: order._id }, { $set: { collaborationRoomId: chat._id.toString() } });
+
+        const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+        const welcomeText = \Hello \! We've received your brief for "\" (Ref #\).
+
+**Budget:** \
+**Timeline:** \
+**Details:** \
+
+Our lead engineers will review this and get back to you here shortly!\;
+        
+        const newMessage = await Message.create({
+          chatId: chat._id,
+          sender: adminId,
+          content: welcomeText,
+          type: "text",
+        });
+
+        chat.lastMessage = {
+          content: welcomeText,
+          sender: adminId,
+          createdAt: newMessage.createdAt
+        };
+        await chat.save();
+        
+        const io = req.app.get("io");
+        if (io) {
+          const populatedMessage = await Message.findById(newMessage._id).populate("sender", "username name profilePicture");
+          io.to(chat._id.toString()).emit("message:new", populatedMessage);
+          chat.participants.forEach((participantId) => {
+            if (participantId.toString() !== adminId.toString()) {
+              io.to(participantId.toString()).emit("chat:update", { ...chat.toObject(), lastMessage: { content: welcomeText, sender: populatedMessage.sender, createdAt: newMessage.createdAt } });
+            }
+          });
+        }
+      }
+    } catch (chatErr) {}
+    
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+export const submitCustomBrief = async (req, res) => {
+  try {
+    let userId = null;
+    
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+       try {
+         const jwt = (await import('jsonwebtoken')).default;
+         const token = req.headers.authorization.split(' ')[1];
+         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+         userId = decoded.id;
+       } catch (err) {}
+    } else if (req.cookies && req.cookies.access_token) {
+       try {
+         const jwt = (await import('jsonwebtoken')).default;
+         const decoded = jwt.verify(req.cookies.access_token, process.env.JWT_SECRET);
+         userId = decoded.id;
+       } catch (err) {}
+    }
+
+    const { name, email, projectType, budget, timeline, projectDetails } = req.body;
+    
+    // Create the main order
+    const order = await MarketOrder.create({
+      user_id: userId,
+      phone: '',
+      email,
+      customer_name: name,
+      status: 'Pending Verification',
+      projectPhase: 'Discovery',
+      source_channel: 'Custom Brief',
+      delivery_charge: 0,
+      discount_amount: 0,
+      subtotal: 0,
+      total_amount: 0,
+      payment_method: 'Custom Project',
+    });
+    
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    const createdItem = await MarketOrderItem.create({
+      order_id: order._id,
+      product_id: null,
+      product_name: 'Custom Project Brief: ' + projectType,
+      quantity: 1,
+      price_at_purchase: 0,
+      license_key: crypto.randomUUID().toUpperCase(),
+      download_token: crypto.randomBytes(16).toString('hex'),
+      download_expires_at: expiresAt,
+      download_attempts: 0,
+      max_downloads: 5
+    });
+
+    const result = order.toObject();
+    result.id = result._id;
+    const obj = createdItem.toObject();
+    obj.id = obj._id;
+    result.items = [obj];
+
+    // Notify Admins
+    try {
+      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select("_id").lean();
+      if (admins.length > 0) {
+        const adminIds = admins.map(a => a._id);
+        const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+        await createBulkNotifications(adminIds, {
+           title: \New Custom Brief (#\)\,
+           message: \\ submitted a brief: \.\,
+           type: 'order',
+           actionUrl: \/admin/orders\
+        });
+      }
+    } catch (notifErr) {}
+    
+    // Create Collaboration Room
+    try {
+      const Chat = (await import('../models/Chat.model.js')).default;
+      const Message = (await import('../models/Message.model.js')).default;
+
+      const adminUser = await User.findOne({ role: { $in: ['admin', 'superadmin'] } }).sort({ role: -1 }).select('_id');
+      const adminId = adminUser ? adminUser._id : null;
+
+      if (adminId) {
+        const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).select("_id").lean();
+        const participantIds = [];
+        if (userId) participantIds.push(userId.toString());
+        admins.forEach(a => participantIds.push(a._id.toString()));
+        const uniqueParticipants = [...new Set(participantIds)];
+
+        let chat = await Chat.create({ participants: uniqueParticipants, orderId: order._id });
+        await MarketOrder.updateOne({ _id: order._id }, { $set: { collaborationRoomId: chat._id.toString() } });
+
+        const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+        const welcomeText = \Hello \! We've received your brief for "\" (Ref #\).
+
+**Budget:** \
+**Timeline:** \
+**Details:** \
+
+Our lead engineers will review this and get back to you here shortly!\;
+        
+        const newMessage = await Message.create({
+          chatId: chat._id,
+          sender: adminId,
+          content: welcomeText,
+          type: "text",
+        });
+
+        chat.lastMessage = {
+          content: welcomeText,
+          sender: adminId,
+          createdAt: newMessage.createdAt
+        };
+        await chat.save();
+        
+        const io = req.app.get("io");
+        if (io) {
+          const populatedMessage = await Message.findById(newMessage._id).populate("sender", "username name profilePicture");
+          io.to(chat._id.toString()).emit("message:new", populatedMessage);
+          chat.participants.forEach((participantId) => {
+            if (participantId.toString() !== adminId.toString()) {
+              io.to(participantId.toString()).emit("chat:update", { ...chat.toObject(), lastMessage: { content: welcomeText, sender: populatedMessage.sender, createdAt: newMessage.createdAt } });
+            }
+          });
+        }
+      }
+    } catch (chatErr) {}
+    
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

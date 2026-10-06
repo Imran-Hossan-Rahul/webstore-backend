@@ -55,6 +55,7 @@ router.get('/orders', protect, orderController.getOrders);
 router.get('/orders/:id', protect, orderController.getOrderById);
 router.post('/orders', protect, orderController.createOrder);
 router.post('/orders/guest', orderController.createGuestOrder);
+router.post('/orders/custom-brief', orderController.submitCustomBrief);
 router.post('/orders/guest/list', orderController.getGuestOrders);
 router.post('/orders/guest/track', orderController.trackGuestOrder);
 router.patch('/orders/:id/status', protect, adminOnly, orderController.updateOrderStatus);
@@ -70,4 +71,5 @@ router.post('/procurement/run', protect, adminOnly, procurementController.create
 router.post('/delivery/calculate', deliveryController.calculateDelivery);
 
 export default router;
+
 
