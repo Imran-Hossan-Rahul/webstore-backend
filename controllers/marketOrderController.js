@@ -818,7 +818,7 @@ export const verifyLicense = async (req, res) => {
        } catch (err) {}
     }
 
-    const { name, email, projectType, budget, timeline, projectDetails } = req.body;
+    const { name, email, projectType, budget, timeline, features, contactMethod, source, projectDetails } = req.body;
     
     // Create the main order
     const order = await MarketOrder.create({
@@ -834,6 +834,7 @@ export const verifyLicense = async (req, res) => {
       subtotal: 0,
       total_amount: 0,
       payment_method: 'Custom Project',
+      custom_details: { projectType, budget, timeline, features, contactMethod, source, projectDetails },
     });
     
     const expiresAt = new Date();
@@ -926,5 +927,6 @@ export const verifyLicense = async (req, res) => {
     console.error('CUSTOM BRIEF ERROR:', error); res.status(400).json({ error: error.message });
   }
 };
+
 
 

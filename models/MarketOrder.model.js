@@ -16,6 +16,9 @@ const marketOrderSchema = new mongoose.Schema({
   address: {
     type: Object, // division, district, upazila (now optional)
   },
+  custom_details: {
+    type: Object, // budget, timeline, projectDetails for custom briefs
+  },
   status: {
     type: String,
     enum: ['Pending Verification', 'Payment Failed', 'Confirmed', 'In Collaboration', 'Provisioning', 'Active', 'Delivered', 'Suspended', 'Cancelled'],
@@ -72,3 +75,4 @@ marketOrderSchema.set('toJSON', { virtuals: true });
 const MarketOrder = mongoose.models.MarketOrder || mongoose.model('MarketOrder', marketOrderSchema);
 
 export default MarketOrder;
+

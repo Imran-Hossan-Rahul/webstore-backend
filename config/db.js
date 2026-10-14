@@ -38,6 +38,7 @@ async function connectWithRetry(retries = 5, delay = 2000) {
       connectTimeoutMS: 30000,
       retryWrites: true,
       w: "majority",
+      family: 4, // Force IPv4 to prevent IPv6 network drops
     });
 
     logger.info("✅ MongoDB connected successfully");

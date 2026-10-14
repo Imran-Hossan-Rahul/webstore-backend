@@ -24,6 +24,7 @@ import tokenRoutes from "./routes/tokenRoutes.js";
 import oauthRoutes from "./routes/oauthRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
 import trackRoutes from "./routes/trackRoutes.js";
+import blogRoutes from "./routes/blogRoutes.js";
 
 import { enforceHTTPS, securityHeaders, removeSensitiveHeaders } from "./middlewares/securityMiddleware.js";
 
@@ -445,6 +446,7 @@ app.use("/api/v1/wallet", walletRoutes);
 app.use("/api/v1/oauth", oauthRoutes);
 app.use("/api/v1/market", marketRoutes);
 app.use("/api/v1/track", trackRoutes);
+app.use("/api/v1/blogs", blogRoutes);
 import licenseRoutes from './routes/licenseRoutes.js';
 import adminLicenseRoutes from './routes/adminLicenseRoutes.js';
 app.use("/api/v1/license", licenseRoutes);
